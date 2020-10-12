@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <script src="dist/gibberish.js"></script>
+    <link rel="stylesheet" type="text/css" href="dist/litegraph.css" />
+    <script type="text/javascript" src="dist/litegraph.js"></script>
+  </head>
+
+  <body style="width: 100%; height: 100%">
+    <canvas
+      id="mycanvas"
+      width="1024"
+      height="720"
+      style="border: 1px solid"
+    ></canvas>
+    <script>
+      Gibberish.workletPath = "dist/gibberish_worklet.js";
+
+      Gibberish.init().then(() => {
+        Gibberish.export(window);
+
+        function OutputNode() {
+          this.addInput("Source", "gibber");
+          this.properties = { precision: 1 };
+        }
+
+        OutputNode.title = "Output";
+
+        OutputNode.prototype.onExecute = function () {
+          let data = this.getInputData(0);
+          if (data && !this.source) {
+            this.source = data;
+            this.source.connect();
+            console.log("output connect");
+          } else if (!data) {
+            if (this.source) {
+              this.source.disconnect();
+              this.source = false;
+              console.log("output disconnect");
+            }
+          }
+        };
+
+        LiteGraph.registerNodeType("gibber/output", OutputNode);
+
+        function SineNode() {
+          this.addInput("Freq", "number");
+          this.addOutput("Source", "gibber");
+          this.properties = { precision: 1 };
+          this.sine = Sine();
+        }
+
+        //name to show
+        SineNode.title = "Sine";
+
+        //function to call when the node is executed
+        SineNode.prototype.onConnectionsChange = function () {
+          this.setOutputData(0, this.sine);
+        };
+
+        //register in the system
+        LiteGraph.registerNodeType("gibber/sine", SineNode);
+
+        function SquareNode() {
+          this.addInput("Source", "gibber");
+          this.addOutput("Source", "gibber");
+          this.square = false;
+        }
+
+        SquareNode.title = "Square";
+
+        SquareNode.prototype.onExecute = function () {
+          let data = this.getInputData(0);
+          if (data && !this.square) {
+            this.square = Square({
+              frequency: Add(440, data),
+              gain: 0.25,
+              antialias: true,
+            });
+
+            this.setOutputData(0, this.square);
+            console.log("square output start");
+          } else if (!data) {
+            if (this.square) {
+              this.square = false;
+              this.setOutputData(0, this.square);
+              console.log("square output stop");
+            }
+          }
+        };
+
+        LiteGraph.registerNodeType("gibber/square", SquareNode);
+
+        var graph = new LGraph();
+
+        var canvas = new LGraphCanvas("#mycanvas", graph);
+
+        var node_sine = LiteGraph.createNode("gibber/sine");
+        node_sine.pos = [200, 200];
+        graph.add(node_sine);
+
+        var node_square = LiteGraph.createNode("gibber/square");
+        node_square.pos = [400, 200];
+        graph.add(node_square);
+
+        var node_out = LiteGraph.createNode("gibber/output");
+        node_out.pos = [600, 200];
+        graph.add(node_out);
+
+        graph.start();
+      });
+    </script>
+  </body>
+</html>
