@@ -1,0 +1,24 @@
+{
+  "name": "gibber-graph",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "parcel watch src/index.html --log-level 5 & node server.js"
+  },
+  "dependencies": {
+    "body-parser": "^1.19.0",
+    "compression": "^1.7.4",
+    "express": "^4.17.1",
+    "mongodb": "^3.6.1",
+    "npm-run-all": "^4.1.5",
+    "passport": "^0.4.1",
+    "passport-github": "^1.1.0",
+    "cookie-parser": "^1.4.5",
+    "express-session": "^1.17.1",
+    "svelte": "^3.29.0",
+    "parcel-plugin-svelte": "^4.0.7",
+    "parcel-bundler": "^1.12.4"
+  },
+  "browserslist": [
+    "since 2017-06"
+  ]
+}
