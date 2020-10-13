@@ -1,182 +1,203 @@
 Gibberish.workletPath = "dist/gibberish_worklet.js";
 
 Gibberish.init().then(() => {
-    Gibberish.export(window);
+  Gibberish.export(window);
 
-    function OutputNode() {
-        this.addInput("Source", "gibber");
-        this.properties = {
-        precision: 1
-        };
+  function ArrayNode() {
+    this.addOutput("Array", "gibber_array");
+    this.widget = this.addWidget("text", "string", "", "value");
+    this.widgets_up = true;
+  }
+
+  ArrayNode.title = "Array";
+
+  ArrayNode.prototype.onStart = function () {
+    let data = this.widget.value;
+    if (data) {
+      this.setOutputData(0, JSON.parse("[" + data + "]"));
+      console.log(data.split(","));
+      console.log("array start out");
     }
+  };
 
-    OutputNode.title = "Output";
+  ArrayNode.prototype.onStop = function () {
+    this.setOutputData(0, false);
+    console.log("array stop out");
+  };
 
-    OutputNode.prototype.onStart = function() {
-        let data = this.getInputData(0);
-        if (data && !this.source) {
-            this.source = data;
-            this.source.connect();
-            console.log("output connect");
-        }
+  LiteGraph.registerNodeType("gibber/array", ArrayNode);
+
+  function OutputNode() {
+    this.addInput("Source", "gibber");
+    this.properties = {
+      precision: 1,
     };
+  }
 
-    OutputNode.prototype.onStop = function() {
-        if (this.source) {
-            this.source.disconnect();
-            this.source = false;
-            console.log("output disconnect");
-        }
+  OutputNode.title = "Output";
+
+  OutputNode.prototype.onStart = function () {
+    let data = this.getInputData(0);
+    if (data && !this.source) {
+      this.source = data;
+      this.source.connect();
+      console.log("output connect");
     }
+  };
 
-    LiteGraph.registerNodeType("gibber/output", OutputNode);
-
-    function SineNode() {
-        this.addOutput("Output", "gibber");
-        this.properties = {
-        precision: 1
-        };
-        this.sine = Sine();
+  OutputNode.prototype.onStop = function () {
+    if (this.source) {
+      this.source.disconnect();
+      this.source = false;
+      console.log("output disconnect");
     }
+  };
 
-    //name to show
-    SineNode.title = "Sine";
+  LiteGraph.registerNodeType("gibber/output", OutputNode);
 
-    //function to call when the node is executed
-    SineNode.prototype.onStart = function() {
-        this.setOutputData(0, this.sine);
-        console.log("sine output start");
+  function SineNode() {
+    this.addOutput("Output", "gibber");
+    this.properties = {
+      precision: 1,
     };
+    this.sine = Sine();
+  }
 
-    SineNode.prototype.onStop = function() {
-        this.setOutputData(0, false);
-        console.log("sine output stop");
-    }
+  //name to show
+  SineNode.title = "Sine";
 
-    //register in the system
-    LiteGraph.registerNodeType("gibber/sine", SineNode);
+  //function to call when the node is executed
+  SineNode.prototype.onStart = function () {
+    this.setOutputData(0, this.sine);
+    console.log("sine output start");
+  };
 
-    function KickNode() {
-        this.addOutput("Output", "gibber");
-        this.properties = {
-        precision: 1
-        };
-    }
+  SineNode.prototype.onStop = function () {
+    this.setOutputData(0, false);
+    console.log("sine output stop");
+  };
 
-    //name to show
-    KickNode.title = "Kick";
+  //register in the system
+  LiteGraph.registerNodeType("gibber/sine", SineNode);
 
-    //function to call when the node is executed
-    KickNode.prototype.onStart = function() {
-        this.kick = Kick();
-        this.kick.connect();
-        this.setOutputData(0, this.kick);
-        
-        console.log("kick output start");
+  function KickNode() {
+    this.addOutput("Output", "gibber");
+    this.properties = {
+      precision: 1,
     };
+  }
 
-    KickNode.prototype.onStop = function() {
-        this.kick.disconnect();
-        this.kick = false;
-        this.setOutputData(0, this.kick);
-        
-        console.log("kick output stop");
-    }
+  //name to show
+  KickNode.title = "Kick";
 
-    //register in the system
-    LiteGraph.registerNodeType("gibber/kick", KickNode);
+  //function to call when the node is executed
+  KickNode.prototype.onStart = function () {
+    this.kick = Kick();
+    this.kick.connect();
+    this.setOutputData(0, this.kick);
 
-    function SnareNode() {
-        this.addOutput("Output", "gibber");
-        this.properties = {
-            precision: 1
-        };
-    }
+    console.log("kick output start");
+  };
 
-    //name to show
-    SnareNode.title = "Snare";
+  KickNode.prototype.onStop = function () {
+    this.kick.disconnect();
+    this.kick = false;
+    this.setOutputData(0, this.kick);
 
-    //function to call when the node is executed
-    SnareNode.prototype.onStart = function() {
-        this.snare = Snare();
-        this.snare.connect();
-        this.setOutputData(0, this.snare);
-        
-        console.log("snare output start");
+    console.log("kick output stop");
+  };
+
+  //register in the system
+  LiteGraph.registerNodeType("gibber/kick", KickNode);
+
+  function SnareNode() {
+    this.addOutput("Output", "gibber");
+    this.properties = {
+      precision: 1,
     };
+  }
 
-    SnareNode.prototype.onStop = function() {
-        this.snare.disconnect();
-        this.snare = false;
-        this.setOutputData(0, this.snare);
-        
-        console.log("snare output stop");
+  //name to show
+  SnareNode.title = "Snare";
+
+  //function to call when the node is executed
+  SnareNode.prototype.onStart = function () {
+    this.snare = Snare();
+    this.snare.connect();
+    this.setOutputData(0, this.snare);
+
+    console.log("snare output start");
+  };
+
+  SnareNode.prototype.onStop = function () {
+    this.snare.disconnect();
+    this.snare = false;
+    this.setOutputData(0, this.snare);
+
+    console.log("snare output stop");
+  };
+
+  //register in the system
+  LiteGraph.registerNodeType("gibber/snare", SnareNode);
+
+  function SequencerNode() {
+    this.addInput("Source", "gibber");
+    this.addInput("Values", "gibber_array");
+    this.addInput("Timings", "gibber_array");
+  }
+
+  SequencerNode.title = "Sequencer";
+
+  SequencerNode.prototype.onStart = function () {
+    let data = this.getInputData(0);
+    let values = this.getInputData(1);
+    let timings = this.getInputData(2);
+    if (data && values && timings) {
+      this.sequencer = Sequencer.make(values, timings, data, "trigger").start();
+      this.setOutputData(0, this.sequencer);
+      console.log("sequencer output start");
     }
+  };
 
-    //register in the system
-    LiteGraph.registerNodeType("gibber/snare", SnareNode);
-
-    function SequencerNode() {
-        this.addInput("Source", "gibber");
-        this.addInput("Values", "array");
-        this.addInput("Timings", "array");
-        this.properties = {
-            delay: 0
-        }
+  SquareNode.prototype.onStop = function () {
+    if (this.sequencer) {
+      this.sequencer.stop();
+      this.sequencer = false;
+      this.setOutputData(0, this.sequencer);
+      console.log("sequencer output stop");
     }
+  };
 
-    SequencerNode.title = "Sequencer";
+  LiteGraph.registerNodeType("gibber/sequencer", SequencerNode);
 
-    SequencerNode.prototype.onStart = function() {
-        let data = this.getInputData(0);
-        let values = this.getInputData(1);
-        let timings = this.getInputData(2);
-        if (data && values && timings) {
-            this.sequencer = Sequencer.make(values, timings, data, "trigger").start(this.properties.delay);
-            this.setOutputData(0, this.sequencer);
-            console.log("sequencer output start");
-        }
-    };
+  function SquareNode() {
+    this.addInput("Source", "gibber");
+    this.addOutput("Source", "gibber");
+  }
 
-    SquareNode.prototype.onStop = function() {
-        if (this.sequencer) {
-            this.sequencer.stop();
-            this.sequencer = false;
-            this.setOutputData(0, this.sequencer);
-            console.log("sequencer output stop");
-        }
+  SquareNode.title = "Square";
+
+  SquareNode.prototype.onStart = function () {
+    let data = this.getInputData(0);
+    if (data && !this.square) {
+      this.square = Square({
+        frequency: Add(440, data),
+        gain: 0.25,
+        antialias: true,
+      });
+
+      this.setOutputData(0, this.square);
+      console.log("square output start");
     }
+  };
 
-    LiteGraph.registerNodeType("gibber/sequencer", SequencerNode);
-
-    function SquareNode() {
-        this.addInput("Source", "gibber");
-        this.addOutput("Source", "gibber");
+  SquareNode.prototype.onStop = function () {
+    if (this.square) {
+      this.square = false;
+      this.setOutputData(0, this.square);
+      console.log("square output stop");
     }
+  };
 
-    SquareNode.title = "Square";
-
-    SquareNode.prototype.onStart = function() {
-        let data = this.getInputData(0);
-        if (data && !this.square) {
-            this.square = Square({
-                frequency: Add(440, data),
-                gain: 0.25,
-                antialias: true,
-            });
-
-            this.setOutputData(0, this.square);
-            console.log("square output start");
-        }
-    };
-
-    SquareNode.prototype.onStop = function() {
-        if (this.square) {
-            this.square = false;
-            this.setOutputData(0, this.square);
-            console.log("square output stop");
-        }
-    }
-
-    LiteGraph.registerNodeType("gibber/square", SquareNode);
+  LiteGraph.registerNodeType("gibber/square", SquareNode);
 });
