@@ -1,8 +1,8 @@
-import * as Instruments from "./instruments.js";
-import * as Oscillators from "./oscillators.js";
-import * as Helpers from "./helpers.js";
+import * as Instruments from "../nodes/instruments.js";
+import * as Oscillators from "../nodes/oscillators.js";
+import * as Helpers from "../nodes/helpers.js";
 
-window.onload = () => {
+export function init() {
   Gibberish.workletPath =
     "https://raw.githack.com/gibber-cc/gibberish/v3/dist/gibberish_worklet.js";
 
@@ -14,4 +14,4 @@ window.onload = () => {
     Oscillators.init();
     Helpers.init();
   });
-};
+}

@@ -2,7 +2,7 @@
   "name": "gibber-graph",
   "version": "1.0.0",
   "scripts": {
-    "start": "parcel watch src/index.html --log-level 5 & node server.js"
+    "start": "parcel watch src/index.html --log-level 4 & node server.js"
   },
   "dependencies": {
     "body-parser": "^1.19.0",

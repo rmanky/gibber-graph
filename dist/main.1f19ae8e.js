@@ -2373,7 +2373,529 @@ Object.defineProperty(exports, "tick", {
 });
 
 var _internal = require("./internal");
-},{"./internal":"../node_modules/svelte/internal/index.mjs"}],"components/LiteGraph.svelte":[function(require,module,exports) {
+},{"./internal":"../node_modules/svelte/internal/index.mjs"}],"js/canvas.js":[function(require,module,exports) {
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.init = init;
+
+function init() {
+  var webgl_canvas = null;
+  LiteGraph.node_images_path = "../nodes_data/";
+  var editor = new LiteGraph.Editor("main", {
+    miniwindow: false
+  });
+  window.graphcanvas = editor.graphcanvas;
+  window.graph = editor.graph;
+  window.addEventListener("resize", function () {
+    editor.graphcanvas.resize();
+  }); //window.addEventListener("keydown", editor.graphcanvas.processKey.bind(editor.graphcanvas) );
+
+  window.onbeforeunload = function () {
+    var data = JSON.stringify(graph.serialize());
+    localStorage.setItem("litegraphg demo backup", data);
+  }; //enable scripting
+
+
+  LiteGraph.allow_scripts = true; //create scene selector
+
+  var elem = document.createElement("span");
+  elem.className = "selector";
+  elem.innerHTML = "Demo <select><option>Empty</option></select> <button class='btn' id='save'>Save</button><button class='btn' id='load'>Load</button><button class='btn' id='download'>Download</button> | <button class='btn' id='webgl'>WebGL</button>";
+  editor.tools.appendChild(elem);
+  console.log(editor.tools);
+  var select = elem.querySelector("select");
+  select.addEventListener("change", function (e) {
+    var option = this.options[this.selectedIndex];
+    var url = option.dataset["url"];
+    if (url) graph.load(url);else if (option.callback) option.callback();else graph.clear();
+  });
+  elem.querySelector("#save").addEventListener("click", function () {
+    console.log("saved");
+    localStorage.setItem("graphdemo_save", JSON.stringify(graph.serialize()));
+  });
+  elem.querySelector("#load").addEventListener("click", function () {
+    var data = localStorage.getItem("graphdemo_save");
+    if (data) graph.configure(JSON.parse(data));
+    console.log("loaded");
+  });
+  elem.querySelector("#download").addEventListener("click", function () {
+    var data = JSON.stringify(graph.serialize());
+    var file = new Blob([data]);
+    var url = URL.createObjectURL(file);
+    var element = document.createElement("a");
+    element.setAttribute("href", url);
+    element.setAttribute("download", "graph.JSON");
+    element.style.display = "none";
+    document.body.appendChild(element);
+    element.click();
+    document.body.removeChild(element);
+    setTimeout(function () {
+      URL.revokeObjectURL(url);
+    }, 1000 * 60); //wait one minute to revoke url
+  });
+  elem.querySelector("#webgl").addEventListener("click", enableWebGL);
+
+  function addDemo(name, url) {
+    var option = document.createElement("option");
+    if (url.constructor === String) option.dataset["url"] = url;else option.callback = url;
+    option.innerHTML = name;
+    select.appendChild(option);
+  } //some examples
+  // addDemo("Features", "examples/features.json");
+  // addDemo("Benchmark", "examples/benchmark.json");
+  // addDemo("Subgraph", "examples/subgraph.json");
+  // addDemo("Audio", "examples/audio.json");
+  // addDemo("Audio Delay", "examples/audio_delay.json");
+  // addDemo("Audio Reverb", "examples/audio_reverb.json");
+  // addDemo("MIDI Generation", "examples/midi_generation.json");
+
+
+  addDemo("autobackup", function () {
+    var data = localStorage.getItem("litegraphg demo backup");
+    if (!data) return;
+    var graph_data = JSON.parse(data);
+    graph.configure(graph_data);
+  }); //allows to use the WebGL nodes like textures
+
+  function enableWebGL() {
+    if (webgl_canvas) {
+      webgl_canvas.style.display = webgl_canvas.style.display == "none" ? "block" : "none";
+      return;
+    }
+
+    var libs = ["js/libs/gl-matrix-min.js", "js/libs/litegl.js", "/nodes/gltextures.js", "/nodes/glfx.js", "/nodes/glshaders.js", "/nodes/geometry.js"];
+
+    function fetchJS() {
+      if (libs.length == 0) return on_ready();
+      var script = null;
+      script = document.createElement("script");
+      script.onload = fetchJS;
+      script.src = libs.shift();
+      document.head.appendChild(script);
+    }
+
+    fetchJS();
+
+    function on_ready() {
+      console.log(this.src);
+      if (!window.GL) return;
+      webgl_canvas = document.createElement("canvas");
+      webgl_canvas.width = 400;
+      webgl_canvas.height = 300;
+      webgl_canvas.style.position = "absolute";
+      webgl_canvas.style.top = "0px";
+      webgl_canvas.style.right = "0px";
+      webgl_canvas.style.border = "1px solid #AAA";
+      webgl_canvas.addEventListener("click", function () {
+        var rect = webgl_canvas.parentNode.getBoundingClientRect();
+
+        if (webgl_canvas.width != rect.width) {
+          webgl_canvas.width = rect.width;
+          webgl_canvas.height = rect.height;
+        } else {
+          webgl_canvas.width = 400;
+          webgl_canvas.height = 300;
+        }
+      });
+      var parent = document.querySelector(".editor-area");
+      parent.appendChild(webgl_canvas);
+      var gl = GL.create({
+        canvas: webgl_canvas
+      });
+      if (!gl) return;
+      editor.graph.onBeforeStep = ondraw;
+      console.log("webgl ready");
+
+      function ondraw() {
+        gl.clearColor(0, 0, 0, 0);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+      }
+    }
+  }
+}
+},{}],"nodes/instruments.js":[function(require,module,exports) {
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.init = init;
+
+function init() {
+  let defaults = {
+    trigger: [1.0, 1.0, 0.0],
+    note: [220, 330, 440]
+  };
+  let list = [{
+    name: "Kick",
+    function: () => Kick(),
+    key: "trigger"
+  }, {
+    name: "Snare",
+    function: () => Snare(),
+    key: "trigger"
+  }, {
+    name: "Hat",
+    function: () => Hat(),
+    key: "trigger"
+  }, {
+    name: "Tom",
+    function: () => Tom(),
+    key: "trigger"
+  }, {
+    name: "Synth",
+    function: () => Synth(),
+    key: "note"
+  }];
+  list.forEach(instrument => {
+    function Node() {
+      this.addOutput("Instrument", "instrument");
+      this.addInput("Gain", "number");
+    } //name to show
+
+
+    Node.title = instrument.name;
+
+    Node.prototype.onRemoved = function () {
+      this.sound = false;
+      this.key = false;
+      this.setOutputData(0, {
+        sound: this.sound,
+        key: this.key
+      });
+    };
+
+    Node.prototype.onExecute = function () {
+      if (this.sound) {
+        let gain = this.getInputData(0) == null ? 1.0 : this.getInputData(0);
+        this.sound.gain = gain;
+      }
+    };
+
+    Node.prototype.onConnectionsChange = function (connection, slot, connected, link_info) {
+      //only process the outputs events
+      if (connection != LiteGraph.OUTPUT) {
+        return;
+      }
+
+      if (graph.status === LGraph.STATUS_RUNNING) {
+        if (connected) {
+          if (link_info.target_slot === 0) {
+            this.sound = instrument.function();
+            this.key = instrument.key;
+            this.setOutputData(0, {
+              sound: this.sound,
+              key: this.key
+            });
+          }
+        } else {
+          if (link_info.origin_slot === 0) {
+            this.sound = false;
+            this.key = false;
+            this.setOutputData(0, {
+              sound: this.sound,
+              key: this.key
+            });
+          }
+        }
+      }
+    }; //register in the system
+
+
+    LiteGraph.registerNodeType("instrument/" + instrument.name, Node);
+  }); // --- SEQUENCER --- \\
+
+  function SequencerNode() {
+    this.addInput("Instrument", "instrument");
+    this.addInput("Values", "array");
+    this.addInput("Timings", "array");
+  }
+
+  SequencerNode.title = "Sequencer";
+
+  SequencerNode.prototype.onRemoved = function () {
+    if (this.sequencer) {
+      this.sequencer.stop();
+      this.sequencer = false;
+    }
+
+    if (this.source) {
+      this.source.disconnect();
+      this.source = false;
+    }
+  };
+
+  SequencerNode.prototype.onExecute = function () {
+    if (this.sequencer) {
+      let values = this.getInputData(1) == null ? defaults[this.sequencer.key] : this.getInputData(1);
+      let timings = this.getInputData(2) == null ? [10000] : this.getInputData(2);
+      this.sequencer.values = values;
+      this.sequencer.timings = timings;
+    }
+  };
+
+  SequencerNode.prototype.onConnectionsChange = function (connection, slot, connected, link_info) {
+    //only process the outputs events
+    if (connection != LiteGraph.INPUT) {
+      return;
+    }
+
+    if (graph.status === LGraph.STATUS_RUNNING) {
+      if (connected && link_info && link_info.data) {
+        if (link_info.target_slot === 0) {
+          if (this.sequencer) {
+            this.sequencer.stop();
+            this.sequencer = false;
+          }
+
+          if (this.source) {
+            this.source.disconnect();
+            this.source = false;
+          }
+
+          this.source = link_info.data.sound;
+          this.source.connect();
+          this.sequencer = Sequencer.make(defaults[link_info.data.key], [10000], this.source, link_info.data.key).start();
+        }
+      } else if (link_info) {
+        if (link_info.target_slot === 0) {
+          if (this.sequencer) {
+            this.sequencer.stop();
+            this.sequencer = false;
+          }
+
+          if (this.source) {
+            this.source.disconnect();
+            this.source = false;
+          }
+        }
+      }
+    }
+  };
+
+  LiteGraph.registerNodeType("instrument/Sequencer", SequencerNode);
+}
+},{}],"nodes/oscillators.js":[function(require,module,exports) {
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.init = init;
+
+function init() {
+  let list = [{
+    name: "Sine",
+    function: () => Sine()
+  }, {
+    name: "Square",
+    function: () => Square()
+  }, {
+    name: "Triangle",
+    function: () => Triangle()
+  }, {
+    name: "Saw",
+    function: () => Saw()
+  }];
+  list.forEach(instrument => {
+    function Node() {
+      this.addOutput("Oscillator", "oscillator");
+      this.addInput("Frequency", "number");
+      this.addInput("Gain", "number");
+    } //name to show
+
+
+    Node.title = instrument.name;
+
+    Node.prototype.onExecute = function () {
+      if (this.sound) {
+        let freq = this.getInputData(0) == null ? 300 : this.getInputData(0);
+        let gain = this.getInputData(1) == null ? 1.0 : this.getInputData(1);
+        this.sound.frequency = freq;
+        this.sound.gain = gain;
+      }
+    };
+
+    Node.prototype.onConnectionsChange = function (connection, slot, connected, link_info) {
+      //only process the outputs events
+      if (connection != LiteGraph.OUTPUT) {
+        return;
+      }
+
+      if (graph.status === LGraph.STATUS_RUNNING) {
+        if (connected) {
+          this.sound = instrument.function();
+          console.log(this.sound);
+          this.setOutputData(0, this.sound);
+        } else {
+          this.sound = false;
+          this.setOutputData(0, this.sound);
+        }
+      }
+    }; //register in the system
+
+
+    LiteGraph.registerNodeType("oscillator/" + instrument.name, Node);
+  });
+
+  function OutputNode() {
+    this.addInput("Oscillator", "oscillator");
+  }
+
+  OutputNode.title = "Output";
+
+  OutputNode.prototype.onRemoved = function () {
+    if (this.source) {
+      this.source.disconnect();
+      this.source = false;
+    }
+  };
+
+  OutputNode.prototype.onConnectionsChange = function (connection, slot, connected, link_info) {
+    //only process the outputs events
+    if (connection != LiteGraph.INPUT) {
+      return;
+    }
+
+    if (graph.status === LGraph.STATUS_RUNNING) {
+      if (connected && link_info) {
+        if (link_info.data) {
+          if (this.source) {
+            this.source.disconnect();
+            this.source = false;
+          }
+
+          this.source = link_info.data;
+          this.source.connect();
+        }
+      } else {
+        if (this.source) {
+          this.source.disconnect();
+          this.source = false;
+        }
+      }
+    }
+  };
+
+  LiteGraph.registerNodeType("oscillator/Output", OutputNode);
+  /*     
+    function reverseSawNode() {
+      this.addOutput("Output", "gibber");
+      this.properties = {
+        precision: 1
+      };
+      this.saw = ReverseSaw();
+    }
+     ReserveSaw.title = "ReserveSaw";
+     //function to call when the node is executed
+    reverseSawNode.prototype.onStart = function() {
+      this.setOutputData(0, this.saw);
+      console.log("reversesaw output start");
+    };
+     reverseSawNode.prototype.onStop = function() {
+      this.setOutputData(0, false);
+      console.log("saw output stop");
+    };
+    LiteGraph.registerNodeType("gibber/reversesaw", reverseSawNode); //reverse 
+     var node_rsaw = LiteGraph.createNode("gibber/reversesaw"); //reverse
+    node_rsaw.pos = [400, 200];
+    graph.add(node_rsaw);
+    
+  ///need to get Conga to get Cowbell??
+     function CowBellNode() {
+      this.addOutput("Output", "gibber");
+      this.properties = {
+        precision: 1
+      };
+    }
+     CowBellNode.title = "Cowbell";
+     //function to call when the node is executed
+    CowBellNode.prototype.onStart = function() {
+      this.cowbell = Cowbell();
+      this.cowbell.connect();
+      this.setOutputData(0, this.cowbell);
+       console.log("cowbell output start");
+    };
+     CowBellNode.prototype.onStop = function() {
+      this.cowbell.disconnect();
+      this.cowbell = false;
+      this.setOutputData(0, this.cowbell);
+       console.log("cowbell output stop");
+    };
+     //register in the system
+    LiteGraph.registerNodeType("gibber/cowbell", CowBellNode);
+     var node_cowbell = LiteGraph.createNode("gibber/cowbell");
+    node_cowbell.pos = [400, 200];
+    graph.add(node_cowbell); */
+}
+},{}],"nodes/helpers.js":[function(require,module,exports) {
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.init = init;
+
+function init() {
+  // --- ARRAY --- \\
+  function ArrayNode() {
+    this.addOutput("Array", "array");
+    this.widget = this.addWidget("text", "string", "", "value");
+    this.widgets_up = true;
+  }
+
+  ArrayNode.title = "Array";
+
+  ArrayNode.prototype.onStart = function () {
+    let data = this.widget.value;
+
+    if (data) {
+      this.setOutputData(0, JSON.parse("[" + data + "]"));
+      console.log(data.split(","));
+      console.log("array start out");
+    }
+  };
+
+  ArrayNode.prototype.onStop = function () {
+    this.setOutputData(0, false);
+    console.log("array stop out");
+  };
+
+  LiteGraph.registerNodeType("helper/array", ArrayNode);
+}
+},{}],"js/gibb.js":[function(require,module,exports) {
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.init = init;
+
+var Instruments = _interopRequireWildcard(require("../nodes/instruments.js"));
+
+var Oscillators = _interopRequireWildcard(require("../nodes/oscillators.js"));
+
+var Helpers = _interopRequireWildcard(require("../nodes/helpers.js"));
+
+function _getRequireWildcardCache() { if (typeof WeakMap !== "function") return null; var cache = new WeakMap(); _getRequireWildcardCache = function () { return cache; }; return cache; }
+
+function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } if (obj === null || typeof obj !== "object" && typeof obj !== "function") { return { default: obj }; } var cache = _getRequireWildcardCache(); if (cache && cache.has(obj)) { return cache.get(obj); } var newObj = {}; var hasPropertyDescriptor = Object.defineProperty && Object.getOwnPropertyDescriptor; for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = hasPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : null; if (desc && (desc.get || desc.set)) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } newObj.default = obj; if (cache) { cache.set(obj, newObj); } return newObj; }
+
+function init() {
+  Gibberish.workletPath = "https://raw.githack.com/gibber-cc/gibberish/v3/dist/gibberish_worklet.js";
+  Gibberish.init().then(() => {
+    console.log("Gibb is good");
+    Gibberish.export(window);
+    Instruments.init();
+    Oscillators.init();
+    Helpers.init();
+  });
+}
+},{"../nodes/instruments.js":"nodes/instruments.js","../nodes/oscillators.js":"nodes/oscillators.js","../nodes/helpers.js":"nodes/helpers.js"}],"components/LiteGraph.svelte":[function(require,module,exports) {
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -2385,10 +2907,15 @@ var _internal = require("svelte/internal");
 
 var _svelte = require("svelte");
 
+var Editor = _interopRequireWildcard(require("../js/canvas.js"));
+
+var Gibb = _interopRequireWildcard(require("../js/gibb.js"));
+
+function _getRequireWildcardCache() { if (typeof WeakMap !== "function") return null; var cache = new WeakMap(); _getRequireWildcardCache = function () { return cache; }; return cache; }
+
+function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } if (obj === null || typeof obj !== "object" && typeof obj !== "function") { return { default: obj }; } var cache = _getRequireWildcardCache(); if (cache && cache.has(obj)) { return cache.get(obj); } var newObj = {}; var hasPropertyDescriptor = Object.defineProperty && Object.getOwnPropertyDescriptor; for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = hasPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : null; if (desc && (desc.get || desc.set)) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } newObj.default = obj; if (cache) { cache.set(obj, newObj); } return newObj; }
+
 /* components/LiteGraph.svelte generated by Svelte v3.29.0 */
-const {
-  console: console_1
-} = _internal.globals;
 const file = "components/LiteGraph.svelte";
 
 function create_fragment(ctx) {
@@ -2397,7 +2924,7 @@ function create_fragment(ctx) {
     c: function create() {
       div = (0, _internal.element)("div");
       (0, _internal.attr_dev)(div, "id", "main");
-      (0, _internal.add_location)(div, file, 203, 0, 6342);
+      (0, _internal.add_location)(div, file, 22, 0, 414);
     },
     l: function claim(nodes) {
       throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -2429,175 +2956,30 @@ function instance($$self, $$props, $$invalidate) {
   } = $$props;
   (0, _internal.validate_slots)("LiteGraph", slots, []);
   (0, _svelte.onMount)(async () => {
-    var webgl_canvas = null;
-    LiteGraph.node_images_path = "../nodes_data/";
-    var editor = new LiteGraph.Editor("main", {
-      miniwindow: false
-    });
-    window.graphcanvas = editor.graphcanvas;
-    window.graph = editor.graph;
-    window.addEventListener("resize", function () {
-      editor.graphcanvas.resize();
-    }); //window.addEventListener("keydown", editor.graphcanvas.processKey.bind(editor.graphcanvas) );
-
-    window.onbeforeunload = function () {
-      var data = JSON.stringify(graph.serialize());
-      localStorage.setItem("litegraphg demo backup", data);
-    }; //enable scripting
-
-
-    LiteGraph.allow_scripts = true; //create scene selector
-
-    var elem = document.createElement("span");
-    elem.className = "selector";
-    elem.innerHTML = "Demo <select><option>Empty</option></select> <button class='btn' id='save'>Save</button><button class='btn' id='load'>Load</button><button class='btn' id='download'>Download</button> | <button class='btn' id='webgl'>WebGL</button>";
-    editor.tools.appendChild(elem);
-    var select = elem.querySelector("select");
-    select.addEventListener("change", function (e) {
-      var option = this.options[this.selectedIndex];
-      var url = option.dataset["url"];
-      if (url) graph.load(url);else if (option.callback) option.callback();else graph.clear();
-    });
-    elem.querySelector("#save").addEventListener("click", function () {
-      console.log("saved new");
-      const user = document.querySelector("#username");
-      const now = new Date();
-      const secondsSinceEpoch = Math.round(now.getTime() / 1000);
-      let data = JSON.stringify({
-        user: user.innerHTML,
-        time: secondsSinceEpoch,
-        graph: graph.serialize()
-      });
-      localStorage.setItem("graphdemo_save", data);
-      fetch("/add", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: data
-      }).then(function (response) {
-        // do something with the reponse 
-        console.log(response.json().then(data => {})); //responseJSON(data);
-      });
-    });
-    elem.querySelector("#load").addEventListener("click", function () {}); //     document.getElementById("load").outerText = "hello";
-    //   console.log("hello");
-
-    elem.querySelector("#download").addEventListener("click", function () {
-      var data = JSON.stringify(graph.serialize());
-      var file = new Blob([data]);
-      var url = URL.createObjectURL(file);
-      var element = document.createElement("a");
-      element.setAttribute("href", url);
-      element.setAttribute("download", "graph.JSON");
-      element.style.display = "none";
-      document.body.appendChild(element);
-      element.click();
-      document.body.removeChild(element);
-      setTimeout(function () {
-        URL.revokeObjectURL(url);
-      }, 1000 * 60); //wait one minute to revoke url	
-    });
-    elem.querySelector("#webgl").addEventListener("click", enableWebGL);
-
-    function addDemo(name, url) {
-      var option = document.createElement("option");
-      if (url.constructor === String) option.dataset["url"] = url;else option.callback = url;
-      option.innerHTML = name;
-      select.appendChild(option);
-    } //some examples
-    // addDemo("Features", "examples/features.json");
-    // addDemo("Benchmark", "examples/benchmark.json");
-    // addDemo("Subgraph", "examples/subgraph.json");
-    // addDemo("Audio", "examples/audio.json");
-    // addDemo("Audio Delay", "examples/audio_delay.json");
-    // addDemo("Audio Reverb", "examples/audio_reverb.json");
-    // addDemo("MIDI Generation", "examples/midi_generation.json");
-
-
-    addDemo("autobackup", function () {
-      var data = localStorage.getItem("litegraphg demo backup");
-      if (!data) return;
-      var graph_data = JSON.parse(data);
-      graph.configure(graph_data);
-    }); //allows to use the WebGL nodes like textures
-
-    function enableWebGL() {
-      if (webgl_canvas) {
-        webgl_canvas.style.display = webgl_canvas.style.display == "none" ? "block" : "none";
-        return;
-      }
-
-      var libs = ["js/libs/gl-matrix-min.js", "js/libs/litegl.js", "/nodes/gltextures.js", "/nodes/glfx.js", "/nodes/glshaders.js", "/nodes/geometry.js"];
-
-      function fetchJS() {
-        if (libs.length == 0) return on_ready();
-        var script = null;
-        script = document.createElement("script");
-        script.onload = fetchJS;
-        script.src = libs.shift();
-        document.head.appendChild(script);
-      }
-
-      fetchJS();
-
-      function on_ready() {
-        console.log(this.src);
-        if (!window.GL) return;
-        webgl_canvas = document.createElement("canvas");
-        webgl_canvas.width = 400;
-        webgl_canvas.height = 300;
-        webgl_canvas.style.position = "absolute";
-        webgl_canvas.style.top = "0px";
-        webgl_canvas.style.right = "0px";
-        webgl_canvas.style.border = "1px solid #AAA";
-        webgl_canvas.addEventListener("click", function () {
-          var rect = webgl_canvas.parentNode.getBoundingClientRect();
-
-          if (webgl_canvas.width != rect.width) {
-            webgl_canvas.width = rect.width;
-            webgl_canvas.height = rect.height;
-          } else {
-            webgl_canvas.width = 400;
-            webgl_canvas.height = 300;
-          }
-        });
-        var parent = document.querySelector(".editor-area");
-        parent.appendChild(webgl_canvas);
-        var gl = GL.create({
-          canvas: webgl_canvas
-        });
-        if (!gl) return;
-        editor.graph.onBeforeStep = ondraw;
-        console.log("webgl ready");
-
-        function ondraw() {
-          gl.clearColor(0, 0, 0, 0);
-          gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-          gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
-        }
-      }
-    }
+    Editor.init();
+    Gibb.init();
   });
   const writable_props = [];
   Object.keys($$props).forEach(key => {
-    if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console_1.warn("<LiteGraph> was created with unknown prop '".concat(key, "'"));
+    if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console.warn("<LiteGraph> was created with unknown prop '".concat(key, "'"));
   });
 
   $$self.$capture_state = () => ({
-    onMount: _svelte.onMount
+    onMount: _svelte.onMount,
+    Editor,
+    Gibb
   });
 
   return [];
 }
 
-class LiteGraph_1 extends _internal.SvelteComponentDev {
+class LiteGraph extends _internal.SvelteComponentDev {
   constructor(options) {
     super(options);
     (0, _internal.init)(this, options, instance, create_fragment, _internal.safe_not_equal, {});
     (0, _internal.dispatch_dev)("SvelteRegisterComponent", {
       component: this,
-      tagName: "LiteGraph_1",
+      tagName: "LiteGraph",
       options,
       id: create_fragment.name
     });
@@ -2605,9 +2987,9 @@ class LiteGraph_1 extends _internal.SvelteComponentDev {
 
 }
 
-var _default = LiteGraph_1;
+var _default = LiteGraph;
 exports.default = _default;
-},{"svelte/internal":"../node_modules/svelte/internal/index.mjs","svelte":"../node_modules/svelte/index.mjs"}],"components/App.svelte":[function(require,module,exports) {
+},{"svelte/internal":"../node_modules/svelte/internal/index.mjs","svelte":"../node_modules/svelte/index.mjs","../js/canvas.js":"js/canvas.js","../js/gibb.js":"js/gibb.js"}],"components/App.svelte":[function(require,module,exports) {
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -3008,7 +3390,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "34242" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "44224" + '/');
 
   ws.onmessage = function (event) {
     checkedAssets = {};

@@ -1,7 +1,15 @@
 export function init() {
+  let defaults = {
+    trigger: [1.0, 1.0, 0.0],
+    note: [220, 330, 440]
+  };
+
   let list = [
-    { name: "Kick", function: () => Kick() },
-    { name: "Snare", function: () => Snare() }
+    { name: "Kick", function: () => Kick(), key: "trigger" },
+    { name: "Snare", function: () => Snare(), key: "trigger" },
+    { name: "Hat", function: () => Hat(), key: "trigger" },
+    { name: "Tom", function: () => Tom(), key: "trigger" },
+    { name: "Synth", function: () => Synth(), key: "note" }
   ];
 
   list.forEach(instrument => {
@@ -14,11 +22,9 @@ export function init() {
     Node.title = instrument.name;
 
     Node.prototype.onRemoved = function() {
-      if (this.sound) {
-        this.sound.disconnect();
-        this.sound = false;
-        this.setOutputData(0, this.sound);
-      }
+      this.sound = false;
+      this.key = false;
+      this.setOutputData(0, { sound: this.sound, key: this.key });
     };
 
     Node.prototype.onExecute = function() {
@@ -40,15 +46,17 @@ export function init() {
       }
 
       if (graph.status === LGraph.STATUS_RUNNING) {
-        if (connected && !this.sound) {
-          this.sound = instrument.function();
-          this.sound.connect();
-          this.setOutputData(0, this.sound);
+        if (connected) {
+          if (link_info.target_slot === 0) {
+            this.sound = instrument.function();
+            this.key = instrument.key;
+            this.setOutputData(0, { sound: this.sound, key: this.key });
+          }
         } else {
-          if (this.sound) {
-            this.sound.disconnect();
+          if (link_info.origin_slot === 0) {
             this.sound = false;
-            this.setOutputData(0, this.sound);
+            this.key = false;
+            this.setOutputData(0, { sound: this.sound, key: this.key });
           }
         }
       }
@@ -67,32 +75,28 @@ export function init() {
 
   SequencerNode.title = "Sequencer";
 
-  SequencerNode.prototype.onStart = function() {
-    let data = this.getInputData(0);
-    let values = this.getInputData(1);
-    let timings = this.getInputData(2);
-    if (data && values && timings) {
-      this.sequencer = Sequencer.make(values, timings, data, "trigger").start();
-      console.log("sequencer output start");
-    }
-  };
-
   SequencerNode.prototype.onRemoved = function() {
     if (this.sequencer) {
       this.sequencer.stop();
       this.sequencer = false;
-      console.log("sequencer stopped");
+    }
+    if (this.source) {
+      this.source.disconnect();
+      this.source = false;
     }
   };
 
   SequencerNode.prototype.onExecute = function() {
     if (this.sequencer) {
       let values =
-        this.getInputData(0) == null ? [1.0, 0.0] : this.getInputData(0);
+        this.getInputData(1) == null
+          ? defaults[this.sequencer.key]
+          : this.getInputData(1);
       let timings =
-        this.getInputData(1) == null ? [10000] : this.getInputData(1);
+        this.getInputData(2) == null ? [10000] : this.getInputData(2);
 
-      this.sequencer.gain = gain;
+      this.sequencer.values = values;
+      this.sequencer.timings = timings;
     }
   };
 
@@ -109,21 +113,34 @@ export function init() {
 
     if (graph.status === LGraph.STATUS_RUNNING) {
       if (connected && link_info && link_info.data) {
-        if (link_info.data && !this.source) {
-          this.source = link_info.data;
+        if (link_info.target_slot === 0) {
+          if (this.sequencer) {
+            this.sequencer.stop();
+            this.sequencer = false;
+          }
+          if (this.source) {
+            this.source.disconnect();
+            this.source = false;
+          }
+          this.source = link_info.data.sound;
+          this.source.connect();
           this.sequencer = Sequencer.make(
-            [1.0, 0.0],
+            defaults[link_info.data.key],
             [10000],
             this.source,
-            "trigger"
+            link_info.data.key
           ).start();
-          console.log("sequencer started");
         }
-      } else {
-        if (this.sequencer) {
-          this.sequencer.stop();
-          this.sequencer = false;
-          console.log("sequencer stopped");
+      } else if (link_info) {
+        if (link_info.target_slot === 0) {
+          if (this.sequencer) {
+            this.sequencer.stop();
+            this.sequencer = false;
+          }
+          if (this.source) {
+            this.source.disconnect();
+            this.source = false;
+          }
         }
       }
     }

@@ -37,7 +37,7 @@ export function init() {
       }
 
       if (graph.status === LGraph.STATUS_RUNNING) {
-        if (connected && !this.sound) {
+        if (connected) {
           this.sound = instrument.function();
           console.log(this.sound);
           this.setOutputData(0, this.sound);
@@ -62,7 +62,6 @@ export function init() {
     if (this.source) {
       this.source.disconnect();
       this.source = false;
-      console.log("output removed");
     }
   };
 
@@ -78,18 +77,19 @@ export function init() {
     }
 
     if (graph.status === LGraph.STATUS_RUNNING) {
-      if (connected && link_info && link_info.data) {
-        if (link_info.data && !this.source) {
+      if (connected && link_info) {
+        if (link_info.data) {
+          if (this.source) {
+            this.source.disconnect();
+            this.source = false;
+          }
           this.source = link_info.data;
           this.source.connect();
-          console.log("output started");
         }
       } else {
         if (this.source) {
-          console.log(this.source);
           this.source.disconnect();
           this.source = false;
-          console.log("output removed");
         }
       }
     }
