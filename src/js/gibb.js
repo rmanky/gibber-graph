@@ -1,5 +1,6 @@
 import * as Instruments from "../nodes/instruments.js";
 import * as Oscillators from "../nodes/oscillators.js";
+import * as Effects from "../nodes/effects.js";
 import * as Helpers from "../nodes/helpers.js";
 
 export function init() {
@@ -12,6 +13,7 @@ export function init() {
 
     Instruments.init();
     Oscillators.init();
+    Effects.init();
     Helpers.init();
   });
 }

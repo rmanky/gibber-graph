@@ -1,4 +1,4 @@
-export function init() {
+export function init(user) {
   var webgl_canvas = null;
 
   LiteGraph.node_images_path = "../nodes_data/";
@@ -8,6 +8,10 @@ export function init() {
   window.addEventListener("resize", function() {
     editor.graphcanvas.resize();
   });
+  
+  // call resize on load
+  editor.graphcanvas.resize();
+  
   window.onbeforeunload = function() {
     var data = JSON.stringify(graph.serialize());
     localStorage.setItem("litegraphg demo backup", data);
@@ -16,13 +20,23 @@ export function init() {
   //enable scripting
   LiteGraph.allow_scripts = true;
 
+  let footer = document.createElement("span");
+  footer.className = "selector";
+  footer.innerHTML =
+    "Hello, " +
+    user.username +
+    "! <form action='/auth/logout'><button type='submit' class='btn btn-danger'>Log Out <i class='fab fa-github'/></button></form>";
+  document
+    .querySelector(".footer")
+    .querySelector(".tools-right")
+    .appendChild(footer);
+
   //create scene selector
   var elem = document.createElement("span");
   elem.className = "selector";
   elem.innerHTML =
     "Demo <select><option>Empty</option></select> <button class='btn' id='save'>Save</button><button class='btn' id='load'>Load</button><button class='btn' id='download'>Download</button> | <button class='btn' id='webgl'>WebGL</button>";
-  editor.tools.appendChild(elem);
-  console.log(editor.tools);
+  document.querySelector(".tools-left").appendChild(elem);
   var select = elem.querySelector("select");
   select.addEventListener("change", function(e) {
     var option = this.options[this.selectedIndex];
@@ -35,42 +49,41 @@ export function init() {
 
   elem.querySelector("#save").addEventListener("click", function() {
     console.log("saved");
-    const user = document.getElementById("username").innerHTML;
-    const now = new Date();  
+    // const user = document.getElementById("username").innerHTML;
+    const now = new Date();
     const secondsSinceEpoch = Math.round(now.getTime() / 1000);
-    const insertString = JSON.stringify({user: user, time: secondsSinceEpoch, graph: graph.serialize()});
-    
-    fetch( '/add', {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body:    insertString
-  })
-    .then( function( response ) { 
-        console.log(response.json().then((data) => {
-        }));;
-      })
+    const insertString = JSON.stringify({
+      user: user.username,
+      time: secondsSinceEpoch,
+      graph: graph.serialize()
+    });
+
+    fetch("/add", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: insertString
+    }).then(function(response) {
+      console.log(response.json().then(data => {}));
+    });
   });
 
   elem.querySelector("#load").addEventListener("click", function() {
-    const user = document.getElementById("username").innerHTML;
-    fetch('/load',{
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({user:user})
-    })
-    .then( function( response ) { 
-        console.log(response.json().then((data) => {
-          if(data.length != 0) {
-            graph.configure(data[0].graph)
+    // const user = document.getElementById("username").innerHTML;
+    fetch("/load", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user: user.username })
+    }).then(function(response) {
+      console.log(
+        response.json().then(data => {
+          if (data.length != 0) {
+            graph.configure(data[0].graph);
           }
-        }));;
-      })
+        })
+      );
+    });
   });
 
-  
-  
-  
-  
   elem.querySelector("#download").addEventListener("click", function() {
     var data = JSON.stringify(graph.serialize());
     var file = new Blob([data]);

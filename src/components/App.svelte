@@ -22,33 +22,30 @@
   });
 </script>
 
+<style>
+</style>
+
 <main>
   {#if !user.loggedIn}
-    <p>
-      Hello, please login!
-    </p>
-    <form class="form-inline" action="/auth/github">
-      <button style="background-color: blue; color: white">
-        Log In with GitHub
-        <i class="fab fa-github" />
-      </button>
-    </form>
+  
+    <div class="wrapper fadeInDown">
+  <div class="card text-center">
+  <div class="card-body">
+    <h5 class="card-title display-4">Gibber Graph</h5>
+    <p class="card-text">Gibberish <i class="fas fa-heart" style="color: red;"></i> LiteGraph<br></p>
+    <a href="/auth/github" class="btn btn-primary">Login with Github <i class="fab fa-github" ></a>
+  </div>
+  <div class="card-footer text-muted">
+    <a target="_blank" href="https://github.com/rmanky">Robear Mankaryous</a>, 
+    <a target="_blank" href="https://github.com/afsimoneau">Alexander Simoneau</a>,
+    <a target="_blank" href="https://github.com/kylemikableh">Kyle Mikolajczyk</a>,
+    <a target = "_blank" href = "https://github.com/afreglett">Alexa Freglette 
+  </div>
+</div>
+    </div>
+    
   {/if}
   {#if user.loggedIn}
-  <h3>Hello,</h3>
-  <h1 id="username">{user.username}</h1>
-    <form class="form-inline" action="/auth/logout">
-      <button style="background-color: red">
-        Log Out
-        <i class="fab fa-github" />
-      </button>
-    </form>
-  
-   <label for="dropdown">Dropdown:</label>
-  <select name="previous_graphs" id="dropdown" onchange="loadStuff(this.value)">
-    <option value="graph1">Graph1</option>
-
-    </select> 
-    <LiteGraph />
+    <LiteGraph {user}/>
   {/if} 
 </main>

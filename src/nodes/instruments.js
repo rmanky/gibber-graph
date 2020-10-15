@@ -5,34 +5,100 @@ export function init() {
   };
 
   let list = [
-    { name: "Kick", function: () => Kick(), key: "trigger" },
-    { name: "Snare", function: () => Snare(), key: "trigger" },
-    { name: "Hat", function: () => Hat(), key: "trigger" },
-    { name: "Tom", function: () => Tom(), key: "trigger" },
-    { name: "Synth", function: () => Synth(), key: "note" }
+    {
+      name: "Clap",
+      function: () => Clap(),
+      key: "trigger",
+      props: { gain: 1, spacing: 100, decay: 0.2, loudness: 1 }
+    },
+    {
+      name: "Conga",
+      function: () => Conga(),
+      key: "trigger",
+      props: { gain: 1, spacing: 100, decay: 0.2, loudness: 1 }
+    },
+    {
+      name: "Cowbell",
+      function: () => Cowbell(),
+      key: "trigger",
+      props: { gain: 1, decay: 0.5, loudness: 1 }
+    },
+    {
+      name: "FM",
+      function: () => FM(),
+      key: "note",
+      props: { gain: 0.5, attack: 44, decay: 22050 }
+    },
+    {
+      name: "Hat",
+      function: () => Hat(),
+      key: "trigger",
+      props: { gain: 0.5, tune: 0.6, decay: 0.1, loudness: 1 }
+    },
+    {
+      name: "Kick",
+      function: () => Kick(),
+      key: "trigger",
+      props: { gain: 1, frequency: 85, tone: 0.25, decay: 0.9, loudness: 1 }
+    },
+    {
+      name: "Snare",
+      function: () => Snare(),
+      key: "trigger",
+      props: { gain: 0.5, tune: 0, snappy: 1, decay: 0.1, loudness: 1 }
+    },
+    {
+      name: "Synth",
+      function: () => Synth(),
+      key: "note",
+      props: {
+        gain: 0.5,
+        attack: 44,
+        decay: 22050
+      }
+    },
+    {
+      name: "Tom",
+      function: () => Tom(),
+      key: "trigger",
+      props: { gain: 1, decay: 0.7, frequency: 120, loudness: 1 }
+    }
   ];
 
   list.forEach(instrument => {
     function Node() {
       this.addOutput("Instrument", "instrument");
-      this.addInput("Gain", "number");
+      Object.keys(instrument.props).forEach(key => {
+        this.addInput(key, "number");
+      });
     }
 
     //name to show
     Node.title = instrument.name;
 
     Node.prototype.onStart = function() {
-      this.setOutputData(0, { sound: this.sound, key: this.key });
+      this.setOutputData(0, {
+        sound: this.gibberishInstrument,
+        key: this.gibberishKey
+      });
     };
 
     Node.prototype.onAdded = function() {
-      this.sound = instrument.function();
-      this.key = instrument.key;
+      this.gibberishInstrument = instrument.function();
+      this.gibberishKey = instrument.key;
+      this.setOutputData(0, {
+        sound: this.gibberishInstrument,
+        key: this.gibberishKey
+      });
     };
 
     Node.prototype.onExecute = function() {
-      let gain = isNaN(this.getInputData(0)) ? 1.0 : this.getInputData(0);
-      this.sound.gain = gain;
+      Object.keys(instrument.props).forEach((key, i) => {
+        let value = isNaN(this.getInputData(i))
+          ? instrument.props[key]
+          : this.getInputData(i);
+        this.gibberishInstrument[key] = value;
+      });
     };
 
     Node.prototype.onConnectionsChange = function(
@@ -48,7 +114,10 @@ export function init() {
 
       if (connected) {
         if (link_info.origin_slot === 0) {
-          this.setOutputData(0, { sound: this.sound, key: this.key });
+          this.setOutputData(0, {
+            sound: this.gibberishInstrument,
+            key: this.gibberishKey
+          });
         }
       }
     };
@@ -64,36 +133,52 @@ export function init() {
     this.addInput("Timings", "array");
   }
 
+  function mapSequencerInput(node, instrument) {
+    node.gibberishInstrument = instrument.sound;
+    node.gibberishSequencer.target = node.gibberishInstrument;
+    node.gibberishSequencer.values = defaults[instrument.key];
+    node.gibberishSequencer.key = instrument.key;
+    if (graph.status === LGraph.STATUS_RUNNING) {
+      node.gibberishInstrument.connect();
+      node.gibberishSequencer.start();
+    }
+  }
+
   SequencerNode.title = "Sequencer";
 
   SequencerNode.prototype.onAdded = function() {
-    this.source;
-    this.sequencer = Sequencer.make(
+    this.gibberishInstrument;
+    this.gibberishSequencer = Sequencer.make(
       defaults["trigger"],
-      [10000],
-      this.source,
+      [15000],
+      this.gibberishInstrument,
       "trigger"
     );
+    if (this.getInputData(0)) {
+      mapSequencerInput(this, this.getInputData(0));
+    }
   };
 
   SequencerNode.prototype.onRemoved = function() {
-    if (this.source) {
-      this.sequencer.stop();
-      this.source.disconnect();
+    if (this.gibberishInstrument) {
+      this.gibberishSequencer.stop();
+      this.gibberishInstrument.disconnect();
     }
   };
 
   SequencerNode.prototype.onStop = function() {
-    if (this.source) {
-      this.sequencer.stop();
-      this.source.disconnect();
+    if (this.gibberishInstrument) {
+      this.gibberishSequencer.stop();
+      this.gibberishInstrument.disconnect();
     }
   };
 
   SequencerNode.prototype.onStart = function() {
-    if (this.source) {
-      this.source.connect();
-      this.sequencer.start();
+    if (this.gibberishInstrument) {
+      this.gibberishInstrument.connect();
+      this.gibberishSequencer.start();
+    } else if (this.getInputData(0)) {
+      mapSequencerInput(this, this.getInputData(0));
     }
   };
 
@@ -101,12 +186,14 @@ export function init() {
     let values = this.getInputData(1);
     let timings = this.getInputData(2);
     if (values) {
-      values = values.some(isNaN) ? defaults[this.sequencer.key] : values;
-      this.sequencer.values = values;
+      values = values.some(isNaN)
+        ? defaults[this.gibberishSequencer.key]
+        : values;
+      this.gibberishSequencer.values = values;
     }
     if (timings) {
       timings = timings.some(isNaN) ? [10000] : timings;
-      this.sequencer.timings = timings;
+      this.gibberishSequencer.timings = timings;
     }
   };
 
@@ -116,28 +203,21 @@ export function init() {
     connected,
     link_info
   ) {
-    //only process the outputs events
+    //only process the inputs events
     if (connection != LiteGraph.INPUT) {
       return;
     }
 
     if (connected && link_info && link_info.data) {
       if (link_info.target_slot === 0) {
-        this.source = link_info.data.sound;
-        this.sequencer.target = this.source;
-        this.sequencer.values = defaults[link_info.data.key];
-        this.sequencer.key = link_info.data.key;
-        if (graph.status === LGraph.STATUS_RUNNING) {
-          this.source.connect();
-          this.sequencer.start();
-        }
+        mapSequencerInput(this, link_info.data);
       }
     } else if (link_info) {
       if (link_info.target_slot === 0) {
-        if (this.source) {
-          this.sequencer.stop();
-          this.source.disconnect();
-          this.source = false;
+        if (this.gibberishInstrument) {
+          this.gibberishSequencer.stop();
+          this.gibberishInstrument.disconnect();
+          this.gibberishInstrument = false;
         }
       }
     }

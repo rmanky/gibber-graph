@@ -11,9 +11,9 @@ const express = require("express"),
 
 app.use(bp.json());
 app.use(express.static("dist"));
+app.use('/imgs', express.static("src/imgs"));
 
 //**********OAuth**********
-
 
 app.use(
   session({
