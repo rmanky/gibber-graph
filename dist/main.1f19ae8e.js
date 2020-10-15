@@ -2391,7 +2391,7 @@ function init() {
   window.graph = editor.graph;
   window.addEventListener("resize", function () {
     editor.graphcanvas.resize();
-  }); //window.addEventListener("keydown", editor.graphcanvas.processKey.bind(editor.graphcanvas) );
+  });
 
   window.onbeforeunload = function () {
     var data = JSON.stringify(graph.serialize());
@@ -2414,12 +2414,43 @@ function init() {
   });
   elem.querySelector("#save").addEventListener("click", function () {
     console.log("saved");
-    localStorage.setItem("graphdemo_save", JSON.stringify(graph.serialize()));
+    const user = document.getElementById("username").innerHTML;
+    const now = new Date();
+    const secondsSinceEpoch = Math.round(now.getTime() / 1000);
+    const insertString = JSON.stringify({
+      user: user,
+      time: secondsSinceEpoch,
+      graph: graph.serialize()
+    });
+    fetch('/add', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: insertString
+    }).then(function (response) {
+      console.log(response.json().then(data => {}));
+      ;
+    });
   });
   elem.querySelector("#load").addEventListener("click", function () {
-    var data = localStorage.getItem("graphdemo_save");
-    if (data) graph.configure(JSON.parse(data));
-    console.log("loaded");
+    const user = document.getElementById("username").innerHTML;
+    fetch('/load', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        user: user
+      })
+    }).then(function (response) {
+      console.log(response.json().then(data => {
+        if (data.length != 0) {
+          graph.configure(data[0].graph);
+        }
+      }));
+      ;
+    });
   });
   elem.querySelector("#download").addEventListener("click", function () {
     var data = JSON.stringify(graph.serialize());
@@ -2527,7 +2558,7 @@ exports.init = init;
 
 function init() {
   let defaults = {
-    trigger: [1.0, 1.0, 0.0],
+    trigger: [0.5, 0.75, 1.0],
     note: [220, 330, 440]
   };
   let list = [{
@@ -2560,20 +2591,21 @@ function init() {
 
     Node.title = instrument.name;
 
-    Node.prototype.onRemoved = function () {
-      this.sound = false;
-      this.key = false;
+    Node.prototype.onStart = function () {
       this.setOutputData(0, {
         sound: this.sound,
         key: this.key
       });
     };
 
+    Node.prototype.onAdded = function () {
+      this.sound = instrument.function();
+      this.key = instrument.key;
+    };
+
     Node.prototype.onExecute = function () {
-      if (this.sound) {
-        let gain = this.getInputData(0) == null ? 1.0 : this.getInputData(0);
-        this.sound.gain = gain;
-      }
+      let gain = isNaN(this.getInputData(0)) ? 1.0 : this.getInputData(0);
+      this.sound.gain = gain;
     };
 
     Node.prototype.onConnectionsChange = function (connection, slot, connected, link_info) {
@@ -2582,25 +2614,12 @@ function init() {
         return;
       }
 
-      if (graph.status === LGraph.STATUS_RUNNING) {
-        if (connected) {
-          if (link_info.target_slot === 0) {
-            this.sound = instrument.function();
-            this.key = instrument.key;
-            this.setOutputData(0, {
-              sound: this.sound,
-              key: this.key
-            });
-          }
-        } else {
-          if (link_info.origin_slot === 0) {
-            this.sound = false;
-            this.key = false;
-            this.setOutputData(0, {
-              sound: this.sound,
-              key: this.key
-            });
-          }
+      if (connected) {
+        if (link_info.origin_slot === 0) {
+          this.setOutputData(0, {
+            sound: this.sound,
+            key: this.key
+          });
         }
       }
     }; //register in the system
@@ -2617,23 +2636,43 @@ function init() {
 
   SequencerNode.title = "Sequencer";
 
-  SequencerNode.prototype.onRemoved = function () {
-    if (this.sequencer) {
-      this.sequencer.stop();
-      this.sequencer = false;
-    }
+  SequencerNode.prototype.onAdded = function () {
+    this.source;
+    this.sequencer = Sequencer.make(defaults["trigger"], [10000], this.source, "trigger");
+  };
 
+  SequencerNode.prototype.onRemoved = function () {
     if (this.source) {
+      this.sequencer.stop();
       this.source.disconnect();
-      this.source = false;
+    }
+  };
+
+  SequencerNode.prototype.onStop = function () {
+    if (this.source) {
+      this.sequencer.stop();
+      this.source.disconnect();
+    }
+  };
+
+  SequencerNode.prototype.onStart = function () {
+    if (this.source) {
+      this.source.connect();
+      this.sequencer.start();
     }
   };
 
   SequencerNode.prototype.onExecute = function () {
-    if (this.sequencer) {
-      let values = this.getInputData(1) == null ? defaults[this.sequencer.key] : this.getInputData(1);
-      let timings = this.getInputData(2) == null ? [10000] : this.getInputData(2);
+    let values = this.getInputData(1);
+    let timings = this.getInputData(2);
+
+    if (values) {
+      values = values.some(isNaN) ? defaults[this.sequencer.key] : values;
       this.sequencer.values = values;
+    }
+
+    if (timings) {
+      timings = timings.some(isNaN) ? [10000] : timings;
       this.sequencer.timings = timings;
     }
   };
@@ -2644,34 +2683,24 @@ function init() {
       return;
     }
 
-    if (graph.status === LGraph.STATUS_RUNNING) {
-      if (connected && link_info && link_info.data) {
-        if (link_info.target_slot === 0) {
-          if (this.sequencer) {
-            this.sequencer.stop();
-            this.sequencer = false;
-          }
+    if (connected && link_info && link_info.data) {
+      if (link_info.target_slot === 0) {
+        this.source = link_info.data.sound;
+        this.sequencer.target = this.source;
+        this.sequencer.values = defaults[link_info.data.key];
+        this.sequencer.key = link_info.data.key;
 
-          if (this.source) {
-            this.source.disconnect();
-            this.source = false;
-          }
-
-          this.source = link_info.data.sound;
+        if (graph.status === LGraph.STATUS_RUNNING) {
           this.source.connect();
-          this.sequencer = Sequencer.make(defaults[link_info.data.key], [10000], this.source, link_info.data.key).start();
+          this.sequencer.start();
         }
-      } else if (link_info) {
-        if (link_info.target_slot === 0) {
-          if (this.sequencer) {
-            this.sequencer.stop();
-            this.sequencer = false;
-          }
-
-          if (this.source) {
-            this.source.disconnect();
-            this.source = false;
-          }
+      }
+    } else if (link_info) {
+      if (link_info.target_slot === 0) {
+        if (this.source) {
+          this.sequencer.stop();
+          this.source.disconnect();
+          this.source = false;
         }
       }
     }
@@ -2711,13 +2740,19 @@ function init() {
 
     Node.title = instrument.name;
 
+    Node.prototype.onStart = function () {
+      this.setOutputData(0, this.sound);
+    };
+
+    Node.prototype.onAdded = function () {
+      this.sound = instrument.function();
+    };
+
     Node.prototype.onExecute = function () {
-      if (this.sound) {
-        let freq = this.getInputData(0) == null ? 300 : this.getInputData(0);
-        let gain = this.getInputData(1) == null ? 1.0 : this.getInputData(1);
-        this.sound.frequency = freq;
-        this.sound.gain = gain;
-      }
+      let freq = isNaN(this.getInputData(0)) ? 300 : this.getInputData(0);
+      let gain = isNaN(this.getInputData(1)) ? 1.0 : this.getInputData(1);
+      this.sound.frequency = freq;
+      this.sound.gain = gain;
     };
 
     Node.prototype.onConnectionsChange = function (connection, slot, connected, link_info) {
@@ -2726,13 +2761,8 @@ function init() {
         return;
       }
 
-      if (graph.status === LGraph.STATUS_RUNNING) {
-        if (connected) {
-          this.sound = instrument.function();
-          console.log(this.sound);
-          this.setOutputData(0, this.sound);
-        } else {
-          this.sound = false;
+      if (connected) {
+        if (link_info.origin_slot === 0) {
           this.setOutputData(0, this.sound);
         }
       }
@@ -2748,10 +2778,21 @@ function init() {
 
   OutputNode.title = "Output";
 
+  OutputNode.prototype.onStart = function () {
+    if (this.source) {
+      this.source.connect();
+    }
+  };
+
+  OutputNode.prototype.onStop = function () {
+    if (this.source) {
+      this.source.disconnect();
+    }
+  };
+
   OutputNode.prototype.onRemoved = function () {
     if (this.source) {
       this.source.disconnect();
-      this.source = false;
     }
   };
 
@@ -2761,22 +2802,18 @@ function init() {
       return;
     }
 
-    if (graph.status === LGraph.STATUS_RUNNING) {
-      if (connected && link_info) {
-        if (link_info.data) {
-          if (this.source) {
-            this.source.disconnect();
-            this.source = false;
-          }
+    if (connected && link_info && link_info.data) {
+      if (link_info.target_slot === 0) {
+        this.source = link_info.data;
 
-          this.source = link_info.data;
+        if (graph.status === LGraph.STATUS_RUNNING) {
           this.source.connect();
         }
-      } else {
-        if (this.source) {
-          this.source.disconnect();
-          this.source = false;
-        }
+      }
+    } else if (link_info) {
+      if (link_info.target_slot === 0) {
+        this.source.disconnect();
+        this.source = false;
       }
     }
   };
@@ -3390,7 +3427,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "44224" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "34650" + '/');
 
   ws.onmessage = function (event) {
     checkedAssets = {};

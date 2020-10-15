@@ -8,7 +8,6 @@ export function init() {
   window.addEventListener("resize", function() {
     editor.graphcanvas.resize();
   });
-  //window.addEventListener("keydown", editor.graphcanvas.processKey.bind(editor.graphcanvas) );
   window.onbeforeunload = function() {
     var data = JSON.stringify(graph.serialize());
     localStorage.setItem("litegraphg demo backup", data);
@@ -36,15 +35,42 @@ export function init() {
 
   elem.querySelector("#save").addEventListener("click", function() {
     console.log("saved");
-    localStorage.setItem("graphdemo_save", JSON.stringify(graph.serialize()));
+    const user = document.getElementById("username").innerHTML;
+    const now = new Date();  
+    const secondsSinceEpoch = Math.round(now.getTime() / 1000);
+    const insertString = JSON.stringify({user: user, time: secondsSinceEpoch, graph: graph.serialize()});
+    
+    fetch( '/add', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    insertString
+  })
+    .then( function( response ) { 
+        console.log(response.json().then((data) => {
+        }));;
+      })
   });
 
   elem.querySelector("#load").addEventListener("click", function() {
-    var data = localStorage.getItem("graphdemo_save");
-    if (data) graph.configure(JSON.parse(data));
-    console.log("loaded");
+    const user = document.getElementById("username").innerHTML;
+    fetch('/load',{
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({user:user})
+    })
+    .then( function( response ) { 
+        console.log(response.json().then((data) => {
+          if(data.length != 0) {
+            graph.configure(data[0].graph)
+          }
+        }));;
+      })
   });
 
+  
+  
+  
+  
   elem.querySelector("#download").addEventListener("click", function() {
     var data = JSON.stringify(graph.serialize());
     var file = new Blob([data]);

@@ -107,159 +107,29 @@ client.connect().then(__connection => {
 
 app.post('/add',bp.json(), function(req,res,next){
   dataCollection = client.db("main").collection("gibber-graph");
-  dataCollection.insertOne(req.body)
+  console.log(req.body.user);
+  dataCollection.deleteMany( { "user" : req.body.user }, function(err, obj) {
+    if (err) throw err;
+    dataCollection.insertOne(req.body)
    .then(dbresponse =>{
     res.json(dbresponse.ops)
-    
+    console.log("Done adding")
     next();
   })
+  });
 })
 
 
-app.post("/load", (req, res) => {
-  //console.log("send event");
-  let fromClient = req.body;
-  fromClient.username = req.session.login;
-  dataCollection
-    .find({ username: fromClient.username })
-    .toArray()
-    .then((r) => {
-      res.json(r);
-      //console.log(r);
-    }); //send table
+app.post("/load",bp.json(), function(req,res,next){
+  dataCollection.find({ user: req.body.user }).toArray(function(err, obj) {
+    if (err) console.log("this didn't work");
+     const allResults = obj
+         res.writeHead( 200, { 'Content-Type': 'application/json'})
+         res.write(JSON.stringify(allResults));
+         res.end()
+  })
 });
 
-
-
-
-
-
-// app.use((req, res, next) => {
-//   if (connection !== null) {
-//     next();
-//   } else {
-//     res.status(503).send();
-//     console.log("503"); //no database
-//   }
-// });
-
-//----------MONGO----------
-/**
-//----------POST METHODS----------
-app.post("/add", (req, res) => {
-  let fromClient = req.body;
-  fromClient.username = req.session.login;
-  dataCollection
-    .find({ username: fromClient.username })
-    .toArray()
-    .then((arr) => {
-      if (arr.some((row) => row.route === req.body.route)) {
-        console.log("sending not adding :/");
-      } else {
-        dataCollection.insertOne(fromClient).then((result) => {
-          //console.log(result.ops[0]);
-          dataCollection
-            .find({ username: fromClient.username })
-            .toArray()
-            .then((r) => res.json(r)); //send table
-        });
-      }
-    });
-});
-
-app.post("/update", (req, res) => {
-  let fromClient = req.body;
-  fromClient.username = req.session.login;
-  dataCollection
-    .find({ username: fromClient.username })
-    .toArray()
-    .then((arr) => {
-      if (!arr.some((row) => row.route === req.body.route)) {
-        console.log("nothing to delete :/");
-      } else {
-        dataCollection
-          .updateMany(
-            {
-              //going to delete something
-              _id: mongodb.ObjectID(
-                arr.find((record) => record.route === req.body.route)._id //find the first record in array and get id
-              ),
-            },
-            {
-              $set: {
-                //set multiple fields
-                time: req.body.time,
-                distance: req.body.distance,
-                fitness: req.body.fitness,
-              },
-            }
-          )
-          .then((result) => {
-            dataCollection
-              .find({ username: fromClient.username })
-              .toArray()
-              .then((r) => res.json(r)); //send updated table
-          });
-      }
-    });
-});
-
-app.post("/delete", (req, res) => {
-  let fromClient = req.body;
-  fromClient.username = req.session.login;
-  dataCollection
-    .find({ username: fromClient.username })
-    .toArray()
-    .then((arr) => {
-      if (!arr.some((row) => row.route === req.body.route)) {
-        console.log("nothing to delete :/");
-      } else {
-        dataCollection
-          .deleteOne({
-            //going to delete something
-            _id: mongodb.ObjectID(
-              arr.find((record) => record.route === req.body.route)._id //find the first record in array and get id
-            ),
-          })
-          .then((result) => {
-            dataCollection
-              .find({ username: fromClient.username })
-              .toArray()
-              .then((r) => res.json(r)); //send table
-          });
-      }
-    });
-});
-
-app.post("/load", (req, res) => {
-  //console.log("send event");
-  let fromClient = req.body;
-  fromClient.username = req.session.login;
-  dataCollection
-    .find({ username: fromClient.username })
-    .toArray()
-    .then((r) => {
-      res.json(r);
-      //console.log(r);
-    }); //send table
-});
-
-//----------POST METHODS----------
-**/
-
-// app.get("/home", (req, res) => {
-//   if (req.session.login) {
-//     res.sendFile(__dirname + "/public/home.html"); //send login page on default
-//     console.log("home page event"); //log as page event when we send default page
-//   } else {
-//     res.sendFile(__dirname + "/public/login.html");
-//     console.log("unauthorized login attempt");
-//   }
-// });
-
-// app.get("/", (_, response) => {
-//   response.sendfile(__dirname + "/dist/index.html");
-// });
 
 const listener = app.listen(process.env.PORT, function() {
   console.log(`Your app is listening on port ${listener.address().port}`);

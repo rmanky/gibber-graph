@@ -16,13 +16,19 @@ export function init() {
     //name to show
     Node.title = instrument.name;
 
+    Node.prototype.onStart = function() {
+      this.setOutputData(0, this.sound);
+    };
+
+    Node.prototype.onAdded = function() {
+      this.sound = instrument.function();
+    };
+
     Node.prototype.onExecute = function() {
-      if (this.sound) {
-        let freq = this.getInputData(0) == null ? 300 : this.getInputData(0);
-        let gain = this.getInputData(1) == null ? 1.0 : this.getInputData(1);
-        this.sound.frequency = freq;
-        this.sound.gain = gain;
-      }
+      let freq = isNaN(this.getInputData(0)) ? 300 : this.getInputData(0);
+      let gain = isNaN(this.getInputData(1)) ? 1.0 : this.getInputData(1);
+      this.sound.frequency = freq;
+      this.sound.gain = gain;
     };
 
     Node.prototype.onConnectionsChange = function(
@@ -36,13 +42,8 @@ export function init() {
         return;
       }
 
-      if (graph.status === LGraph.STATUS_RUNNING) {
-        if (connected) {
-          this.sound = instrument.function();
-          console.log(this.sound);
-          this.setOutputData(0, this.sound);
-        } else {
-          this.sound = false;
+      if (connected) {
+        if (link_info.origin_slot === 0) {
           this.setOutputData(0, this.sound);
         }
       }
@@ -58,10 +59,21 @@ export function init() {
 
   OutputNode.title = "Output";
 
+  OutputNode.prototype.onStart = function() {
+    if (this.source) {
+      this.source.connect();
+    }
+  };
+
+  OutputNode.prototype.onStop = function() {
+    if (this.source) {
+      this.source.disconnect();
+    }
+  };
+
   OutputNode.prototype.onRemoved = function() {
     if (this.source) {
       this.source.disconnect();
-      this.source = false;
     }
   };
 
@@ -76,21 +88,17 @@ export function init() {
       return;
     }
 
-    if (graph.status === LGraph.STATUS_RUNNING) {
-      if (connected && link_info) {
-        if (link_info.data) {
-          if (this.source) {
-            this.source.disconnect();
-            this.source = false;
-          }
-          this.source = link_info.data;
+    if (connected && link_info && link_info.data) {
+      if (link_info.target_slot === 0) {
+        this.source = link_info.data;
+        if (graph.status === LGraph.STATUS_RUNNING) {
           this.source.connect();
         }
-      } else {
-        if (this.source) {
-          this.source.disconnect();
-          this.source = false;
-        }
+      }
+    } else if (link_info) {
+      if (link_info.target_slot === 0) {
+        this.source.disconnect();
+        this.source = false;
       }
     }
   };
