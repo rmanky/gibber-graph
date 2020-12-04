@@ -2397,7 +2397,7 @@ function init(user) {
 
   window.onbeforeunload = function () {
     var data = JSON.stringify(graph.serialize());
-    localStorage.setItem("litegraphg demo backup", data);
+    localStorage.setItem("litegraphg demo backup", data); //localStorage.setItem("Demo1", prev_data);
   }; //enable scripting
 
 
@@ -2409,7 +2409,7 @@ function init(user) {
 
   var elem = document.createElement("span");
   elem.className = "selector";
-  elem.innerHTML = "Demo <select><option>Empty</option></select> <button class='btn' id='save'>Save</button><button class='btn' id='load'>Load</button><button class='btn' id='download'>Download</button> | <button class='btn' id='webgl'>WebGL</button>";
+  elem.innerHTML = "Demo <select><option>Empty</option></select> <button class='btn' id='save'>Save</button><button class='btn' id='load'>Load</button><button class='btn' id='download'>Download</button>";
   document.querySelector(".tools-left").appendChild(elem);
   var select = elem.querySelector("select");
   select.addEventListener("change", function (e) {
@@ -2470,14 +2470,22 @@ function init(user) {
       URL.revokeObjectURL(url);
     }, 1000 * 60); //wait one minute to revoke url
   });
-  elem.querySelector("#webgl").addEventListener("click", enableWebGL);
 
   function addDemo(name, url) {
     var option = document.createElement("option");
     if (url.constructor === String) option.dataset["url"] = url;else option.callback = url;
     option.innerHTML = name;
     select.appendChild(option);
-  } //some examples
+  }
+
+  addDemo("Demo1", "../examples/demo1.json");
+  addDemo("Demo2", "../examples/demo2.json");
+  addDemo("Demo3", "../examples/demo3.json");
+  addDemo("Demo4", "../examples/demo4.json");
+  addDemo("Demo5", "../examples/demo5.json");
+  addDemo("Demo6", "../examples/demo6.json");
+  addDemo("Network (Beta)", "../examples/network.json");
+  addDemo("Showcase", "../examples/showcase.json"); //some examples
   // addDemo("Features", "examples/features.json");
   // addDemo("Benchmark", "examples/benchmark.json");
   // addDemo("Subgraph", "examples/subgraph.json");
@@ -2486,70 +2494,12 @@ function init(user) {
   // addDemo("Audio Reverb", "examples/audio_reverb.json");
   // addDemo("MIDI Generation", "examples/midi_generation.json");
 
-
   addDemo("autobackup", function () {
     var data = localStorage.getItem("litegraphg demo backup");
     if (!data) return;
     var graph_data = JSON.parse(data);
     graph.configure(graph_data);
-  }); //allows to use the WebGL nodes like textures
-
-  function enableWebGL() {
-    if (webgl_canvas) {
-      webgl_canvas.style.display = webgl_canvas.style.display == "none" ? "block" : "none";
-      return;
-    }
-
-    var libs = ["js/libs/gl-matrix-min.js", "js/libs/litegl.js", "/nodes/gltextures.js", "/nodes/glfx.js", "/nodes/glshaders.js", "/nodes/geometry.js"];
-
-    function fetchJS() {
-      if (libs.length == 0) return on_ready();
-      var script = null;
-      script = document.createElement("script");
-      script.onload = fetchJS;
-      script.src = libs.shift();
-      document.head.appendChild(script);
-    }
-
-    fetchJS();
-
-    function on_ready() {
-      console.log(this.src);
-      if (!window.GL) return;
-      webgl_canvas = document.createElement("canvas");
-      webgl_canvas.width = 400;
-      webgl_canvas.height = 300;
-      webgl_canvas.style.position = "absolute";
-      webgl_canvas.style.top = "0px";
-      webgl_canvas.style.right = "0px";
-      webgl_canvas.style.border = "1px solid #AAA";
-      webgl_canvas.addEventListener("click", function () {
-        var rect = webgl_canvas.parentNode.getBoundingClientRect();
-
-        if (webgl_canvas.width != rect.width) {
-          webgl_canvas.width = rect.width;
-          webgl_canvas.height = rect.height;
-        } else {
-          webgl_canvas.width = 400;
-          webgl_canvas.height = 300;
-        }
-      });
-      var parent = document.querySelector(".editor-area");
-      parent.appendChild(webgl_canvas);
-      var gl = GL.create({
-        canvas: webgl_canvas
-      });
-      if (!gl) return;
-      editor.graph.onBeforeStep = ondraw;
-      console.log("webgl ready");
-
-      function ondraw() {
-        gl.clearColor(0, 0, 0, 0);
-        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-        gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
-      }
-    }
-  }
+  });
 }
 },{}],"nodes/instruments.js":[function(require,module,exports) {
 "use strict";
@@ -2613,6 +2563,17 @@ function init() {
       loudness: 1
     }
   }, {
+    name: "Karplus",
+    function: () => Karplus(),
+    key: "note",
+    props: {
+      gain: 0.5,
+      decay: 0.97,
+      loudness: 1,
+      damping: 0.2,
+      glide: 1
+    }
+  }, {
     name: "Kick",
     function: () => Kick(),
     key: "trigger",
@@ -2649,14 +2610,15 @@ function init() {
     key: "trigger",
     props: {
       gain: 1,
-      decay: 0.7,
       frequency: 120,
+      decay: 0.7,
       loudness: 1
     }
-  }];
+  }]; //list.sort((a, b) => (a.name > b.name ? 1 : -1));
+
   list.forEach(instrument => {
     function Node() {
-      this.addOutput("Instrument", "instrument");
+      this.addOutput("instrument", "instrument");
       Object.keys(instrument.props).forEach(key => {
         this.addInput(key, "number");
       });
@@ -2709,9 +2671,9 @@ function init() {
   }); // --- SEQUENCER --- \\
 
   function SequencerNode() {
-    this.addInput("Instrument", "instrument");
-    this.addInput("Values", "array");
-    this.addInput("Timings", "array");
+    this.addInput("instrument", "instrument");
+    this.addInput("values", "array");
+    this.addInput("timings", "array");
   }
 
   function mapSequencerInput(node, instrument) {
@@ -2729,11 +2691,11 @@ function init() {
   SequencerNode.title = "Sequencer";
 
   SequencerNode.prototype.onAdded = function () {
-    this.gibberishInstrument;
-    this.gibberishSequencer = Sequencer.make(defaults["trigger"], [15000], this.gibberishInstrument, "trigger");
-
     if (this.getInputData(0)) {
       mapSequencerInput(this, this.getInputData(0));
+    } else {
+      this.gibberishInstrument;
+      this.gibberishSequencer = Sequencer.make(defaults["trigger"], [15000], this.gibberishInstrument, "trigger");
     }
   };
 
@@ -2785,7 +2747,7 @@ function init() {
       if (link_info.target_slot === 0) {
         mapSequencerInput(this, link_info.data);
       }
-    } else if (link_info) {
+    } else if (!connected && link_info) {
       if (link_info.target_slot === 0) {
         if (this.gibberishInstrument) {
           this.gibberishSequencer.stop();
@@ -2831,9 +2793,9 @@ function init() {
   }];
   list.forEach(oscillator => {
     function Node() {
-      this.addOutput("Oscillator", "oscillator");
-      this.addInput("Frequency", "number");
-      this.addInput("Gain", "number");
+      this.addOutput("oscillator", "oscillator");
+      this.addInput("frequency", "number");
+      this.addInput("gain", "number");
     } //name to show
 
 
@@ -2849,7 +2811,7 @@ function init() {
     };
 
     Node.prototype.onExecute = function () {
-      let freq = isNaN(this.getInputData(0)) ? 300 : this.getInputData(0);
+      let freq = isNaN(this.getInputData(0)) ? 200 : this.getInputData(0);
       let gain = isNaN(this.getInputData(1)) ? 1.0 : this.getInputData(1);
       this.gibberishOscillator.frequency = freq;
       this.gibberishOscillator.gain = gain;
@@ -2873,7 +2835,7 @@ function init() {
   });
 
   function OutputNode() {
-    this.addInput("Oscillator", "oscillator");
+    this.addInput("oscillator", "oscillator");
   }
 
   function mapOutputInput(node, input) {
@@ -2923,7 +2885,7 @@ function init() {
         mapOutputInput(this, link_info.data);
       }
     } else if (link_info) {
-      if (link_info.target_slot === 0) {
+      if (link_info.target_slot === 0 && this.gibberishOscillator) {
         this.gibberishOscillator.disconnect();
         this.gibberishOscillator = false;
       }
@@ -3025,7 +2987,8 @@ function init() {
   }];
   list.forEach(object => {
     function Node() {
-      this.addInput("Instrument", "instrument");
+      this.addInput("instrument", "instrument");
+      this.addOutput("instrument", "instrument");
       Object.keys(object.props).forEach(key => {
         this.addInput(key, "number");
       });
@@ -3087,21 +3050,21 @@ function init() {
     };
 
     Node.prototype.onConnectionsChange = function (connection, slot, connected, link_info) {
-      if (connection != LiteGraph.INPUT) {
-        return;
-      }
-
-      if (connected && link_info && link_info.data) {
-        if (link_info.target_slot === 0) {
-          mapNodeInput(this, link_info.data);
-        }
-      } else if (link_info) {
-        // disconnnected?
-        if (link_info.target_slot === 0) {
-          if (this.gibberishEffect) {
-            this.gibberishEffect.disconnect();
+      if (connection === LiteGraph.INPUT) {
+        if (connected && link_info && link_info.data) {
+          if (link_info.target_slot === 0) {
+            mapNodeInput(this, link_info.data);
+          }
+        } else if (link_info) {
+          // disconnnected?
+          if (link_info.target_slot === 0) {
+            if (this.gibberishEffect) {
+              this.gibberishEffect.disconnect();
+            }
           }
         }
+      } else {
+        this.setOutputData(0, this.gibberishInput);
       } // connected
       //alex needs to fix what this does lol
 
@@ -3142,9 +3105,8 @@ function init() {
   ArrayNode.prototype.onStop = function () {
     this.setOutputData(0, false);
     console.log("array stop out");
-  };
+  }; //LiteGraph.registerNodeType("helper/array", ArrayNode);
 
-  LiteGraph.registerNodeType("helper/array", ArrayNode);
 }
 },{}],"js/gibb.js":[function(require,module,exports) {
 "use strict";
@@ -3329,134 +3291,173 @@ var _LiteGraph = _interopRequireDefault(require("./LiteGraph.svelte"));
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 /* components/App.svelte generated by Svelte v3.29.0 */
-const file = "components/App.svelte"; // (29:2) {#if !user.loggedIn}
+const file = "components/App.svelte"; // (31:2) {#if !user.loggedIn}
 
 function create_if_block_1(ctx) {
-  let div3;
-  let div2;
+  let nav;
   let div0;
-  let h5;
+  let t0;
+  let br0;
   let t1;
-  let p;
-  let t2;
-  let i0;
-  let t3;
-  let br;
-  let t4;
-  let a0;
-  let t5;
-  let i1;
-  let t6;
   let div1;
-  let a1;
+  let img;
+  let img_src_value;
+  let t2;
+  let div5;
+  let div4;
+  let div2;
+  let h5;
+  let t4;
+  let p;
+  let t5;
+  let i0;
+  let t6;
+  let br1;
+  let t7;
+  let a0;
   let t8;
+  let i1;
+  let t9;
+  let div3;
+  let a1;
+  let t11;
   let a2;
-  let t10;
+  let t13;
   let a3;
-  let t12;
+  let t15;
   let a4;
   const block = {
     c: function create() {
-      div3 = (0, _internal.element)("div");
-      div2 = (0, _internal.element)("div");
+      nav = (0, _internal.element)("nav");
       div0 = (0, _internal.element)("div");
+      t0 = (0, _internal.text)("By using our website, you agree to our 🍪 policy\n             ");
+      br0 = (0, _internal.element)("br");
+      t1 = (0, _internal.space)();
+      div1 = (0, _internal.element)("div");
+      img = (0, _internal.element)("img");
+      t2 = (0, _internal.space)();
+      div5 = (0, _internal.element)("div");
+      div4 = (0, _internal.element)("div");
+      div2 = (0, _internal.element)("div");
       h5 = (0, _internal.element)("h5");
       h5.textContent = "Gibber Graph";
-      t1 = (0, _internal.space)();
-      p = (0, _internal.element)("p");
-      t2 = (0, _internal.text)("Gibberish ");
-      i0 = (0, _internal.element)("i");
-      t3 = (0, _internal.text)(" LiteGraph");
-      br = (0, _internal.element)("br");
       t4 = (0, _internal.space)();
+      p = (0, _internal.element)("p");
+      t5 = (0, _internal.text)("Gibberish ");
+      i0 = (0, _internal.element)("i");
+      t6 = (0, _internal.text)(" LiteGraph");
+      br1 = (0, _internal.element)("br");
+      t7 = (0, _internal.space)();
       a0 = (0, _internal.element)("a");
-      t5 = (0, _internal.text)("Login with Github ");
+      t8 = (0, _internal.text)("Login with Github ");
       i1 = (0, _internal.element)("i");
-      t6 = (0, _internal.space)();
-      div1 = (0, _internal.element)("div");
+      t9 = (0, _internal.space)();
+      div3 = (0, _internal.element)("div");
       a1 = (0, _internal.element)("a");
       a1.textContent = "Robear Mankaryous";
-      t8 = (0, _internal.text)(", \n    ");
+      t11 = (0, _internal.text)(", \n    ");
       a2 = (0, _internal.element)("a");
       a2.textContent = "Alexander Simoneau";
-      t10 = (0, _internal.text)(",\n    ");
+      t13 = (0, _internal.text)(",\n    ");
       a3 = (0, _internal.element)("a");
       a3.textContent = "Kyle Mikolajczyk";
-      t12 = (0, _internal.text)(",\n    ");
+      t15 = (0, _internal.text)(",\n    ");
       a4 = (0, _internal.element)("a");
       a4.textContent = "Alexa Freglette";
+      (0, _internal.add_location)(br0, file, 36, 13, 680);
+      (0, _internal.attr_dev)(div0, "class", "cookie");
+      (0, _internal.set_style)(div0, "text-align", "center");
+      (0, _internal.add_location)(div0, file, 34, 4, 567);
+      (0, _internal.add_location)(nav, file, 32, 2, 552);
+      (0, _internal.attr_dev)(img, "width", "200px");
+      if (img.src !== (img_src_value = "https://www.wpi.edu/sites/default/files/faculty-image/cdroberts.jpg?1602870867914")) (0, _internal.attr_dev)(img, "src", img_src_value);
+      (0, _internal.add_location)(img, file, 40, 0, 733);
+      (0, _internal.attr_dev)(div1, "class", "prof-center");
+      (0, _internal.add_location)(div1, file, 39, 2, 707);
       (0, _internal.attr_dev)(h5, "class", "card-title display-4");
-      (0, _internal.add_location)(h5, file, 33, 4, 644);
+      (0, _internal.add_location)(h5, file, 48, 4, 971);
       (0, _internal.attr_dev)(i0, "class", "fas fa-heart");
       (0, _internal.set_style)(i0, "color", "red");
-      (0, _internal.add_location)(i0, file, 34, 35, 730);
-      (0, _internal.add_location)(br, file, 34, 93, 788);
+      (0, _internal.add_location)(i0, file, 49, 35, 1057);
+      (0, _internal.add_location)(br1, file, 49, 93, 1115);
       (0, _internal.attr_dev)(p, "class", "card-text");
-      (0, _internal.add_location)(p, file, 34, 4, 699);
+      (0, _internal.add_location)(p, file, 49, 4, 1026);
       (0, _internal.attr_dev)(i1, "class", "fab fa-github");
-      (0, _internal.add_location)(i1, file, 35, 69, 866);
+      (0, _internal.add_location)(i1, file, 50, 69, 1193);
       (0, _internal.attr_dev)(a0, "href", "/auth/github");
       (0, _internal.attr_dev)(a0, "class", "btn btn-primary");
-      (0, _internal.add_location)(a0, file, 35, 4, 801);
-      (0, _internal.attr_dev)(div0, "class", "card-body");
-      (0, _internal.add_location)(div0, file, 32, 2, 616);
+      (0, _internal.add_location)(a0, file, 50, 4, 1128);
+      (0, _internal.attr_dev)(div2, "class", "card-body");
+      (0, _internal.add_location)(div2, file, 47, 2, 943);
       (0, _internal.attr_dev)(a1, "target", "_blank");
       (0, _internal.attr_dev)(a1, "href", "https://github.com/rmanky");
-      (0, _internal.add_location)(a1, file, 38, 4, 949);
+      (0, _internal.add_location)(a1, file, 55, 4, 1282);
       (0, _internal.attr_dev)(a2, "target", "_blank");
       (0, _internal.attr_dev)(a2, "href", "https://github.com/afsimoneau");
-      (0, _internal.add_location)(a2, file, 39, 4, 1029);
+      (0, _internal.add_location)(a2, file, 56, 4, 1362);
       (0, _internal.attr_dev)(a3, "target", "_blank");
       (0, _internal.attr_dev)(a3, "href", "https://github.com/kylemikableh");
-      (0, _internal.add_location)(a3, file, 40, 4, 1113);
+      (0, _internal.add_location)(a3, file, 57, 4, 1446);
       (0, _internal.attr_dev)(a4, "target", "_blank");
       (0, _internal.attr_dev)(a4, "href", "https://github.com/afreglett");
-      (0, _internal.add_location)(a4, file, 41, 4, 1197);
-      (0, _internal.attr_dev)(div1, "class", "card-footer text-muted");
-      (0, _internal.add_location)(div1, file, 37, 2, 908);
-      (0, _internal.attr_dev)(div2, "class", "card text-center");
-      (0, _internal.add_location)(div2, file, 31, 2, 583);
-      (0, _internal.attr_dev)(div3, "class", "wrapper fadeInDown");
-      (0, _internal.add_location)(div3, file, 30, 4, 548);
+      (0, _internal.add_location)(a4, file, 58, 4, 1530);
+      (0, _internal.attr_dev)(div3, "class", "card-footer text-muted");
+      (0, _internal.add_location)(div3, file, 53, 2, 1240);
+      (0, _internal.attr_dev)(div4, "class", "card text-center");
+      (0, _internal.add_location)(div4, file, 45, 2, 904);
+      (0, _internal.attr_dev)(div5, "class", "wrapper fadeInDown");
+      (0, _internal.add_location)(div5, file, 44, 4, 869);
     },
     m: function mount(target, anchor) {
-      (0, _internal.insert_dev)(target, div3, anchor);
-      (0, _internal.append_dev)(div3, div2);
-      (0, _internal.append_dev)(div2, div0);
-      (0, _internal.append_dev)(div0, h5);
-      (0, _internal.append_dev)(div0, t1);
-      (0, _internal.append_dev)(div0, p);
-      (0, _internal.append_dev)(p, t2);
+      (0, _internal.insert_dev)(target, nav, anchor);
+      (0, _internal.append_dev)(nav, div0);
+      (0, _internal.append_dev)(div0, t0);
+      (0, _internal.append_dev)(div0, br0);
+      (0, _internal.insert_dev)(target, t1, anchor);
+      (0, _internal.insert_dev)(target, div1, anchor);
+      (0, _internal.append_dev)(div1, img);
+      (0, _internal.insert_dev)(target, t2, anchor);
+      (0, _internal.insert_dev)(target, div5, anchor);
+      (0, _internal.append_dev)(div5, div4);
+      (0, _internal.append_dev)(div4, div2);
+      (0, _internal.append_dev)(div2, h5);
+      (0, _internal.append_dev)(div2, t4);
+      (0, _internal.append_dev)(div2, p);
+      (0, _internal.append_dev)(p, t5);
       (0, _internal.append_dev)(p, i0);
-      (0, _internal.append_dev)(p, t3);
-      (0, _internal.append_dev)(p, br);
-      (0, _internal.append_dev)(div0, t4);
-      (0, _internal.append_dev)(div0, a0);
-      (0, _internal.append_dev)(a0, t5);
+      (0, _internal.append_dev)(p, t6);
+      (0, _internal.append_dev)(p, br1);
+      (0, _internal.append_dev)(div2, t7);
+      (0, _internal.append_dev)(div2, a0);
+      (0, _internal.append_dev)(a0, t8);
       (0, _internal.append_dev)(a0, i1);
-      (0, _internal.append_dev)(div2, t6);
-      (0, _internal.append_dev)(div2, div1);
-      (0, _internal.append_dev)(div1, a1);
-      (0, _internal.append_dev)(div1, t8);
-      (0, _internal.append_dev)(div1, a2);
-      (0, _internal.append_dev)(div1, t10);
-      (0, _internal.append_dev)(div1, a3);
-      (0, _internal.append_dev)(div1, t12);
-      (0, _internal.append_dev)(div1, a4);
+      (0, _internal.append_dev)(div4, t9);
+      (0, _internal.append_dev)(div4, div3);
+      (0, _internal.append_dev)(div3, a1);
+      (0, _internal.append_dev)(div3, t11);
+      (0, _internal.append_dev)(div3, a2);
+      (0, _internal.append_dev)(div3, t13);
+      (0, _internal.append_dev)(div3, a3);
+      (0, _internal.append_dev)(div3, t15);
+      (0, _internal.append_dev)(div3, a4);
     },
     d: function destroy(detaching) {
-      if (detaching) (0, _internal.detach_dev)(div3);
+      if (detaching) (0, _internal.detach_dev)(nav);
+      if (detaching) (0, _internal.detach_dev)(t1);
+      if (detaching) (0, _internal.detach_dev)(div1);
+      if (detaching) (0, _internal.detach_dev)(t2);
+      if (detaching) (0, _internal.detach_dev)(div5);
     }
   };
   (0, _internal.dispatch_dev)("SvelteRegisterBlock", {
     block,
     id: create_if_block_1.name,
     type: "if",
-    source: "(29:2) {#if !user.loggedIn}",
+    source: "(31:2) {#if !user.loggedIn}",
     ctx
   });
   return block;
-} // (48:2) {#if user.loggedIn}
+} // (67:2) {#if user.loggedIn}
 
 
 function create_if_block(ctx) {
@@ -3504,7 +3505,7 @@ function create_if_block(ctx) {
     block,
     id: create_if_block.name,
     type: "if",
-    source: "(48:2) {#if user.loggedIn}",
+    source: "(67:2) {#if user.loggedIn}",
     ctx
   });
   return block;
@@ -3526,7 +3527,7 @@ function create_fragment(ctx) {
       if (if_block0) if_block0.c();
       t = (0, _internal.space)();
       if (if_block1) if_block1.c();
-      (0, _internal.add_location)(main, file, 27, 0, 511);
+      (0, _internal.add_location)(main, file, 29, 0, 515);
     },
     l: function claim(nodes) {
       throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -3717,7 +3718,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "37119" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "45289" + '/');
 
   ws.onmessage = function (event) {
     checkedAssets = {};

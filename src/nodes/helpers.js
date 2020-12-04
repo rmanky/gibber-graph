@@ -23,5 +23,5 @@ export function init() {
     console.log("array stop out");
   };
 
-  LiteGraph.registerNodeType("helper/array", ArrayNode);
+  //LiteGraph.registerNodeType("helper/array", ArrayNode);
 }

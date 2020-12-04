@@ -77,7 +77,8 @@ export function init() {
 
   list.forEach(object => {
     function Node() {
-      this.addInput("Instrument", "instrument");
+      this.addInput("instrument", "instrument");
+      this.addOutput("instrument", "instrument");
       Object.keys(object.props).forEach(key => {
         this.addInput(key, "number");
       });
@@ -149,20 +150,21 @@ export function init() {
       connected,
       link_info
     ) {
-      if (connection != LiteGraph.INPUT) {
-        return;
-      }
-      if (connected && link_info && link_info.data) {
-        if (link_info.target_slot === 0) {
-          mapNodeInput(this, link_info.data);
-        }
-      } else if (link_info) {
-        // disconnnected?
-        if (link_info.target_slot === 0) {
-          if (this.gibberishEffect) {
-            this.gibberishEffect.disconnect();
+      if (connection === LiteGraph.INPUT) {
+        if (connected && link_info && link_info.data) {
+          if (link_info.target_slot === 0) {
+            mapNodeInput(this, link_info.data);
+          }
+        } else if (link_info) {
+          // disconnnected?
+          if (link_info.target_slot === 0) {
+            if (this.gibberishEffect) {
+              this.gibberishEffect.disconnect();
+            }
           }
         }
+      } else {
+        this.setOutputData(0, this.gibberishInput);
       }
 
       // connected

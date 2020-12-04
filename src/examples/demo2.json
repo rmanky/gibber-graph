@@ -1,0 +1,102 @@
+{
+  "last_node_id": 23,
+  "last_link_id": 26,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "instrument/Cowbell",
+      "pos": [299, 359],
+      "size": { "0": 161.1999969482422, "1": 66 },
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [
+        { "name": "gain", "type": "number", "link": 26 },
+        { "name": "decay", "type": "number", "link": null },
+        { "name": "loudness", "type": "number", "link": null }
+      ],
+      "outputs": [{ "name": "instrument", "type": "instrument", "links": [1] }],
+      "properties": {}
+    },
+    {
+      "id": 2,
+      "type": "effect/Chorus",
+      "pos": [536, 359],
+      "size": { "0": 203.1999969482422, "1": 126 },
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+        { "name": "instrument", "type": "instrument", "link": 1 },
+        { "name": "slowFrequency", "type": "number", "link": null },
+        { "name": "slowGain", "type": "number", "link": null },
+        { "name": "fastFrequency", "type": "number", "link": null },
+        { "name": "fastGain", "type": "number", "link": null },
+        { "name": "inputGain", "type": "number", "link": null }
+      ],
+      "outputs": [
+        { "name": "instrument", "type": "instrument", "links": [11] }
+      ],
+      "properties": {}
+    },
+    {
+      "id": 8,
+      "type": "effect/Flanger",
+      "pos": [822, 359],
+      "size": { "0": 178, "1": 86 },
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        { "name": "instrument", "type": "instrument", "link": 11 },
+        { "name": "feedback", "type": "number", "link": null },
+        { "name": "offset", "type": "number", "link": null },
+        { "name": "frequency", "type": "number", "link": null }
+      ],
+      "outputs": [
+        { "name": "instrument", "type": "instrument", "links": [21] }
+      ],
+      "properties": {}
+    },
+    {
+      "id": 3,
+      "type": "instrument/Sequencer",
+      "pos": [1088, 357],
+      "size": { "0": 140, "1": 66 },
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        { "name": "instrument", "type": "instrument", "link": 21 },
+        { "name": "values", "type": "array", "link": null },
+        { "name": "timings", "type": "array", "link": null }
+      ],
+      "properties": {}
+    },
+    {
+      "id": 11,
+      "type": "widget/internal_slider",
+      "pos": [24, 362],
+      "size": { "0": 210, "1": 58 },
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "outputs": [{ "name": "", "type": "number", "links": [26] }],
+      "properties": {
+        "value": 0.10494506000719608,
+        "min": 0,
+        "max": 1,
+        "text": "V"
+      }
+    }
+  ],
+  "links": [
+    [1, 1, 0, 2, 0, "instrument"],
+    [11, 2, 0, 8, 0, "instrument"],
+    [21, 8, 0, 3, 0, "instrument"],
+    [26, 11, 0, 1, 0, "number"]
+  ],
+  "groups": [],
+  "config": {},
+  "version": 0.4
+}

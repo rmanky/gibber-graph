@@ -11,7 +11,8 @@ const express = require("express"),
 
 app.use(bp.json());
 app.use(express.static("dist"));
-app.use('/imgs', express.static("src/imgs"));
+app.use("/imgs", express.static("src/imgs"));
+app.use("/examples", express.static("src/examples"));
 
 //**********OAuth**********
 
@@ -103,33 +104,28 @@ client.connect().then(__connection => {
   dataCollection = connection.db("UserData").collection("data");
 });
 
-
-
-app.post('/add',bp.json(), function(req,res,next){
+app.post("/add", bp.json(), function(req, res, next) {
   dataCollection = client.db("main").collection("gibber-graph");
   console.log(req.body.user);
-  dataCollection.deleteMany( { "user" : req.body.user }, function(err, obj) {
+  dataCollection.deleteMany({ user: req.body.user }, function(err, obj) {
     if (err) throw err;
-    dataCollection.insertOne(req.body)
-   .then(dbresponse =>{
-    res.json(dbresponse.ops)
-    console.log("Done adding")
-    next();
-  })
+    dataCollection.insertOne(req.body).then(dbresponse => {
+      res.json(dbresponse.ops);
+      console.log("Done adding");
+      next();
+    });
   });
-})
-
-
-app.post("/load",bp.json(), function(req,res,next){
-  dataCollection.find({ user: req.body.user }).toArray(function(err, obj) {
-    if (err) console.log("this didn't work");
-     const allResults = obj
-         res.writeHead( 200, { 'Content-Type': 'application/json'})
-         res.write(JSON.stringify(allResults));
-         res.end()
-  })
 });
 
+app.post("/load", bp.json(), function(req, res, next) {
+  dataCollection.find({ user: req.body.user }).toArray(function(err, obj) {
+    if (err) console.log("this didn't work");
+    const allResults = obj;
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.write(JSON.stringify(allResults));
+    res.end();
+  });
+});
 
 const listener = app.listen(process.env.PORT, function() {
   console.log(`Your app is listening on port ${listener.address().port}`);

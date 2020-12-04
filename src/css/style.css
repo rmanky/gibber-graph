@@ -7,6 +7,29 @@ main {
   padding: 0;
 }
 
+.prof-center {
+  width: 200px;
+  height: 200px;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  margin: -100px 0 0 -100px;
+}
+
+.cookie {
+  position: fixed;
+  bottom: 40px;
+  left: 10%;
+  right: 10%;
+  text-align: center;
+  margin: 0 auto;
+  width: fit-content;
+  padding: 5px 14px;
+  background-color: #eee;
+  border-radius: 5px;
+  box-shadow: 0 0 2px 1px rgba(0, 0, 0, 0.2);
+}
+
 body {
   background-color: #333 !important;
   color: #EEE;
@@ -272,6 +295,7 @@ body {
   width: 100%;
   min-height: 100%;
   padding: 20px;
+  position: relative;
 }
 h1 {
   font-family: "Sansita Swashed", cursive;

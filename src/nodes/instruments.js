@@ -36,6 +36,18 @@ export function init() {
       props: { gain: 0.5, tune: 0.6, decay: 0.1, loudness: 1 }
     },
     {
+      name: "Karplus",
+      function: () => Karplus(),
+      key: "note",
+      props: {
+        gain: 0.5,
+        decay: 0.97,
+        loudness: 1,
+        damping: 0.2,
+        glide: 1
+      }
+    },
+    {
       name: "Kick",
       function: () => Kick(),
       key: "trigger",
@@ -61,13 +73,15 @@ export function init() {
       name: "Tom",
       function: () => Tom(),
       key: "trigger",
-      props: { gain: 1, decay: 0.7, frequency: 120, loudness: 1 }
+      props: { gain: 1, frequency: 120, decay: 0.7, loudness: 1 }
     }
   ];
 
+  //list.sort((a, b) => (a.name > b.name ? 1 : -1));
+
   list.forEach(instrument => {
     function Node() {
-      this.addOutput("Instrument", "instrument");
+      this.addOutput("instrument", "instrument");
       Object.keys(instrument.props).forEach(key => {
         this.addInput(key, "number");
       });
@@ -128,9 +142,9 @@ export function init() {
 
   // --- SEQUENCER --- \\
   function SequencerNode() {
-    this.addInput("Instrument", "instrument");
-    this.addInput("Values", "array");
-    this.addInput("Timings", "array");
+    this.addInput("instrument", "instrument");
+    this.addInput("values", "array");
+    this.addInput("timings", "array");
   }
 
   function mapSequencerInput(node, instrument) {
@@ -147,15 +161,16 @@ export function init() {
   SequencerNode.title = "Sequencer";
 
   SequencerNode.prototype.onAdded = function() {
-    this.gibberishInstrument;
-    this.gibberishSequencer = Sequencer.make(
-      defaults["trigger"],
-      [15000],
-      this.gibberishInstrument,
-      "trigger"
-    );
     if (this.getInputData(0)) {
       mapSequencerInput(this, this.getInputData(0));
+    } else {
+      this.gibberishInstrument;
+      this.gibberishSequencer = Sequencer.make(
+        defaults["trigger"],
+        [15000],
+        this.gibberishInstrument,
+        "trigger"
+      );
     }
   };
 
@@ -212,7 +227,7 @@ export function init() {
       if (link_info.target_slot === 0) {
         mapSequencerInput(this, link_info.data);
       }
-    } else if (link_info) {
+    } else if (!connected && link_info) {
       if (link_info.target_slot === 0) {
         if (this.gibberishInstrument) {
           this.gibberishSequencer.stop();

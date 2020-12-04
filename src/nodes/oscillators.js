@@ -11,9 +11,9 @@ export function init() {
 
   list.forEach(oscillator => {
     function Node() {
-      this.addOutput("Oscillator", "oscillator");
-      this.addInput("Frequency", "number");
-      this.addInput("Gain", "number");
+      this.addOutput("oscillator", "oscillator");
+      this.addInput("frequency", "number");
+      this.addInput("gain", "number");
     }
 
     //name to show
@@ -29,7 +29,7 @@ export function init() {
     };
 
     Node.prototype.onExecute = function() {
-      let freq = isNaN(this.getInputData(0)) ? 300 : this.getInputData(0);
+      let freq = isNaN(this.getInputData(0)) ? 200 : this.getInputData(0);
       let gain = isNaN(this.getInputData(1)) ? 1.0 : this.getInputData(1);
       this.gibberishOscillator.frequency = freq;
       this.gibberishOscillator.gain = gain;
@@ -58,7 +58,7 @@ export function init() {
   });
 
   function OutputNode() {
-    this.addInput("Oscillator", "oscillator");
+    this.addInput("oscillator", "oscillator");
   }
 
   function mapOutputInput(node, input) {
@@ -112,7 +112,7 @@ export function init() {
         mapOutputInput(this, link_info.data);
       }
     } else if (link_info) {
-      if (link_info.target_slot === 0) {
+      if (link_info.target_slot === 0 && this.gibberishOscillator) {
         this.gibberishOscillator.disconnect();
         this.gibberishOscillator = false;
       }
